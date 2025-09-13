@@ -42,5 +42,9 @@ export class ObsController {
       // Not all OBS versions support this; ignore
     }
   }
+
+  async setScene(sceneName: string): Promise<void> {
+    await this.setCurrentScene(sceneName);
+  }
 }
 

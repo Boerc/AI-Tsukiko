@@ -2,7 +2,7 @@ import { ApiClient } from '@twurple/api';
 import { EventSubWsListener } from '@twurple/eventsub-ws';
 import { StaticAuthProvider } from '@twurple/auth';
 
-export type RedeemAction = { type: 'vts_expression' | 'obs_hotkey' | 'persona'; value: string };
+export type RedeemAction = { type: 'vts_expression' | 'obs_hotkey' | 'persona' | 'obs_scene' | 'toggle_filter' | 'play_sfx'; value: string };
 
 export type EventSubConfig = {
   clientId: string;

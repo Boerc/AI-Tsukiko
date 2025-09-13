@@ -1,4 +1,4 @@
-import { Client, Events, GatewayIntentBits, Partials, VoiceBasedChannel } from 'discord.js';
+import { Client, Events, GatewayIntentBits, Partials, VoiceBasedChannel, ApplicationCommandOptionType, ChatInputCommandInteraction } from 'discord.js';
 import { createAudioPlayer, createAudioResource, joinVoiceChannel, NoSubscriberBehavior, AudioPlayerStatus, VoiceConnectionStatus, entersState, DiscordGatewayAdapterCreator } from '@discordjs/voice';
 import { Readable } from 'node:stream';
 import { MemoryStore } from '../memory/memory.js';
@@ -26,6 +26,7 @@ export class DiscordBot {
   private registerHandlers() {
     this.client.on(Events.ClientReady, () => {
       console.log(`Discord logged in as ${this.client.user?.tag}`);
+      this.registerSlashCommands().catch(err => console.error('Register slash failed', err));
     });
 
     this.client.on(Events.MessageCreate, async (msg) => {
@@ -42,6 +43,17 @@ export class DiscordBot {
         }
       }
     });
+
+    this.client.on(Events.InteractionCreate, async (interaction) => {
+      if (!interaction.isChatInputCommand()) return;
+      try {
+        await this.handleSlash(interaction);
+      } catch (err) {
+        console.error('Slash handler error:', err);
+        if (interaction.deferred || interaction.replied) return;
+        await interaction.reply({ content: 'Error handling command', ephemeral: true }).catch(() => {});
+      }
+    });
   }
 
   async login(): Promise<void> {
@@ -54,17 +66,71 @@ export class DiscordBot {
     this.client.destroy();
   }
 
+  private async registerSlashCommands(): Promise<void> {
+    await this.client.application?.commands.set([
+      { name: 'ping', description: 'Ping the bot' },
+      { name: 'say', description: 'Have Tsukiko say something (text chat reply)', options: [ { name: 'text', description: 'What to say', type: 3, required: true } ] },
+      { name: 'tts', description: 'Speak TTS in your current voice channel', options: [ { name: 'text', description: 'What to speak', type: 3, required: true } ] },
+      { name: 'persona', description: 'Switch persona', options: [ { name: 'id', description: 'Persona id (default/evil)', type: 3, required: true } ] },
+      { name: 'join', description: 'Join your current voice channel' },
+      { name: 'leave', description: 'Leave voice channel' }
+    ]);
+  }
+
+  private async handleSlash(interaction: ChatInputCommandInteraction): Promise<void> {
+    const name = interaction.commandName;
+    if (name === 'ping') {
+      await interaction.reply({ content: 'pong', ephemeral: true });
+      return;
+    }
+    if (name === 'say') {
+      const text = interaction.options.getString('text', true);
+      await interaction.reply({ content: text });
+      return;
+    }
+    if (name === 'persona') {
+      const id = interaction.options.getString('id', true);
+      this.config.memory.setSetting('persona.current', id);
+      await interaction.reply({ content: `Persona set to ${id}`, ephemeral: true });
+      return;
+    }
+    if (name === 'join' || name === 'tts') {
+      const member = await interaction.guild?.members.fetch(interaction.user.id);
+      const channelId = member?.voice.channelId;
+      if (!channelId) {
+        await interaction.reply({ content: 'Join a voice channel first.', ephemeral: true });
+        return;
+      }
+      if (name === 'join') {
+        await interaction.reply({ content: 'Joining...', ephemeral: true });
+        // Silent join by playing 1s of silence
+        const silence = Buffer.from([]);
+        await this.playInChannel(interaction.guildId!, channelId, silence).catch(() => {});
+        return;
+      }
+      if (name === 'tts') {
+        const text = interaction.options.getString('text', true);
+        await interaction.deferReply({ ephemeral: true });
+        const audio = await this.config.tts.synthesizeTextToSpeech(text);
+        await this.playInChannel(interaction.guildId!, channelId, audio);
+        await interaction.editReply({ content: 'Spoken.' });
+        return;
+      }
+    }
+    if (name === 'leave') {
+      await interaction.reply({ content: 'Leaving (if connected).', ephemeral: true });
+      // We create/destroy per speak, so nothing persistent to close here
+      return;
+    }
+  }
+
   private async playInAuthorChannel(_channelId: string, guildId: string, audio: Buffer): Promise<void> {
     const guild = await this.client.guilds.fetch(guildId);
     const me = guild.members.me;
     const voiceStates = guild.voiceStates.cache;
     const anyChannel = voiceStates.first()?.channel as VoiceBasedChannel | undefined;
     if (!anyChannel) return;
-    const connection = joinVoiceChannel({
-      channelId: anyChannel.id,
-      guildId: guild.id,
-      adapterCreator: guild.voiceAdapterCreator as unknown as DiscordGatewayAdapterCreator
-    });
+    const connection = joinVoiceChannel({ channelId: anyChannel.id, guildId: guild.id, adapterCreator: guild.voiceAdapterCreator as unknown as DiscordGatewayAdapterCreator });
     await entersState(connection, VoiceConnectionStatus.Ready, 10_000).catch(() => {});
     const player = createAudioPlayer({ behaviors: { noSubscriber: NoSubscriberBehavior.Play } });
     const stream = Readable.from(audio);
@@ -74,6 +140,20 @@ export class DiscordBot {
     await new Promise<void>((resolve) => {
       player.once(AudioPlayerStatus.Idle, () => resolve());
     });
+    sub?.unsubscribe();
+    connection.destroy();
+  }
+
+  private async playInChannel(guildId: string, channelId: string, audio: Buffer): Promise<void> {
+    const guild = await this.client.guilds.fetch(guildId);
+    const connection = joinVoiceChannel({ channelId, guildId: guild.id, adapterCreator: guild.voiceAdapterCreator as unknown as DiscordGatewayAdapterCreator });
+    await entersState(connection, VoiceConnectionStatus.Ready, 10_000).catch(() => {});
+    const player = createAudioPlayer({ behaviors: { noSubscriber: NoSubscriberBehavior.Play } });
+    const stream = Readable.from(audio);
+    const resource = createAudioResource(stream);
+    const sub = connection.subscribe(player);
+    player.play(resource);
+    await new Promise<void>((resolve) => { player.once(AudioPlayerStatus.Idle, () => resolve()); });
     sub?.unsubscribe();
     connection.destroy();
   }

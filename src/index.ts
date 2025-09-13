@@ -18,6 +18,7 @@ import { getPersona } from './persona/persona.js';
 import { quickSentimentToEmotion, triggerEmotion } from './integrations/vtsEmotions.js';
 import { HighlightDetector, HighlightStore } from './analytics/highlights.js';
 import { TwitchEventSub, type RedeemAction } from './integrations/twitchEventSub.js';
+import { ShowFlowScheduler, type ShowAction, type ShowStep } from './showflow/scheduler.js';
 
 dotenv.config();
 
@@ -39,6 +40,7 @@ const db = initializeDatabase(path.join(config.dataDir, 'tsukiko.db'));
 const memory = new MemoryStore(db);
 const highlights = new HighlightStore(db);
 const highlightDetector = new HighlightDetector();
+const showflow = new ShowFlowScheduler();
 const google = new GoogleAI({
   projectId: config.google.projectId,
   location: config.google.location
@@ -125,6 +127,37 @@ app.get('/api/highlights', (_req, res) => {
   }
 });
 
+app.get('/api/showflow', (_req, res) => {
+  try {
+    const stepsRaw = memory.getMemory('showflow.steps', 'global');
+    const steps = stepsRaw ? JSON.parse(stepsRaw) as ShowStep[] : [];
+    res.json({ steps });
+  } catch (e) {
+    res.status(500).json({ error: String(e) });
+  }
+});
+
+app.post('/api/showflow', (req, res) => {
+  try {
+    const steps = req.body?.steps ?? [];
+    memory.setMemory('showflow.steps', JSON.stringify(steps), 'global');
+    // Reload scheduler
+    showflow.load(steps, async (a: ShowAction) => {
+      if (a.kind === 'obs_scene') await obs.setScene(a.value);
+      else if (a.kind === 'obs_hotkey') await obs.triggerHotkey(a.value);
+      else if (a.kind === 'vts_expression') { vts.setExpression(a.value, 1.0); setTimeout(() => vts.setExpression(a.value, 0.0), 1200); }
+      else if (a.kind === 'persona') memory.setSetting('persona.current', a.value);
+      else if (a.kind === 'say') {
+        // Use Discord text channel? For now, log
+        console.log('ShowFlow say:', a.value);
+      }
+    });
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: String(e) });
+  }
+});
+
 // Serve static dashboard
 app.use('/', express.static(path.join(process.cwd(), 'public')));
 
@@ -172,6 +205,14 @@ server.listen(PORT, HOST, async () => {
           vts.setExpression(action.value, 1.0);
           setTimeout(() => vts.setExpression(action.value, 0.0), 1200);
         } else if (action.type === 'obs_hotkey') {
+          await obs.triggerHotkey(action.value);
+        } else if (action.type === 'obs_scene') {
+          await obs.setScene(action.value);
+        } else if (action.type === 'toggle_filter') {
+          // Placeholder: map to hotkey or future OBS filter API
+          await obs.triggerHotkey(action.value);
+        } else if (action.type === 'play_sfx') {
+          // Placeholder: trigger OBS hotkey or TTS short sound
           await obs.triggerHotkey(action.value);
         } else if (action.type === 'persona') {
           memory.setSetting('persona.current', action.value);

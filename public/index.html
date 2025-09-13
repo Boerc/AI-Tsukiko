@@ -120,6 +120,18 @@
       </div>
       <pre id="redeemsOut"></pre>
     </div>
+    <div class="card">
+      <h3>Show Flow</h3>
+      <p class="small">Cron-based steps. Example: {"cron":"0 * * * *","actions":[{"kind":"obs_scene","value":"Just Chatting"}]}.</p>
+      <div>
+        <label>Steps JSON</label>
+        <textarea id="showflowText" rows="8" placeholder='[{"cron":"*/5 * * * *","actions":[{"kind":"obs_hotkey","value":"NextScene"}]}]'></textarea>
+      </div>
+      <div style="margin-top: 12px; display:flex; gap:8px;">
+        <button id="loadShowflow">Load</button>
+        <button id="saveShowflow">Save</button>
+      </div>
+    </div>
     <script>
       async function refreshHealth(){
         const r = await fetch('/api/health');
@@ -180,6 +192,17 @@
         const r = await fetch('/api/redeems');
         const j = await r.json();
         document.getElementById('redeemsOut').textContent = JSON.stringify(j, null, 2);
+      };
+      document.getElementById('loadShowflow').onclick = async () => {
+        const r = await fetch('/api/showflow');
+        const j = await r.json();
+        document.getElementById('showflowText').value = JSON.stringify(j.steps ?? [], null, 2);
+      };
+      document.getElementById('saveShowflow').onclick = async () => {
+        const txt = document.getElementById('showflowText').value;
+        const steps = JSON.parse(txt || '[]');
+        await fetch('/api/showflow', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ steps }) });
+        alert('Show flow saved');
       };
     </script>
   </body>
