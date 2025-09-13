@@ -1,6 +1,7 @@
 import { ApiClient } from '@twurple/api';
 import { EventSubWsListener } from '@twurple/eventsub-ws';
 import { StaticAuthProvider } from '@twurple/auth';
+import { metrics } from '../metrics/metrics.js';
 
 export type RedeemAction = { type: 'vts_expression' | 'obs_hotkey' | 'persona' | 'obs_scene' | 'toggle_filter' | 'play_sfx'; value: string };
 
@@ -17,6 +18,7 @@ export class TwitchEventSub {
   private broadcasterId: string;
   private keepaliveTimer: NodeJS.Timeout | null = null;
   private lastSubscribeTs = 0;
+  private resubFailures = 0;
 
   constructor(cfg: EventSubConfig) {
     const auth = new StaticAuthProvider(cfg.clientId, cfg.accessToken);
@@ -49,6 +51,7 @@ export class TwitchEventSub {
         const title: string = e?.rewardTitle ?? '';
         const action = this.redeemsMap.get(title.toLowerCase());
         try { console.log('[EventSub] redeem', title); } catch {}
+        metrics.counters.eventsub_redeems_total.inc({});
         onRedeem(title, action);
       });
       this.lastSubscribeTs = Date.now();
@@ -63,7 +66,12 @@ export class TwitchEventSub {
     this.keepaliveTimer = setInterval(async () => {
       const since = Date.now() - this.lastSubscribeTs;
       if (since > 10 * 60_000) {
-        try { await this.subscribeToRedemptions(this.broadcasterId, () => {}); } catch {}
+        try {
+          await this.subscribeToRedemptions(this.broadcasterId, () => {});
+          this.resubFailures = 0;
+        } catch (e) {
+          this.resubFailures++;
+        }
       }
     }, 60_000);
   }
@@ -86,6 +94,10 @@ export class TwitchEventSub {
     } catch (e: any) {
       return { ok: false, required, error: String(e?.message || e) };
     }
+  }
+
+  getExtendedStatus() {
+    return { ...this.getStatus(), lastSubscribeTs: this.lastSubscribeTs, resubFailures: this.resubFailures };
   }
 }
 

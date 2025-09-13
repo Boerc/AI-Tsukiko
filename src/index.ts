@@ -192,7 +192,7 @@ app.get('/api/selftest', (_req, res) => {
   const base = {
     obs: obs.getStatus(),
     vts: vts.getStatus(),
-    eventsub: eventSub ? eventSub.getStatus() : { connected: false }
+    eventsub: eventSub ? eventSub.getExtendedStatus() : { connected: false }
   };
   const done = async () => {
     if (!eventSub) return base;
