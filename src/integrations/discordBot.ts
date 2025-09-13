@@ -1,6 +1,7 @@
 import { Client, Events, GatewayIntentBits, Partials, VoiceBasedChannel, ApplicationCommandOptionType, ChatInputCommandInteraction } from 'discord.js';
-import { createAudioPlayer, createAudioResource, joinVoiceChannel, NoSubscriberBehavior, AudioPlayerStatus, VoiceConnectionStatus, entersState, DiscordGatewayAdapterCreator } from '@discordjs/voice';
+import { createAudioPlayer, createAudioResource, joinVoiceChannel, NoSubscriberBehavior, AudioPlayerStatus, VoiceConnectionStatus, entersState, DiscordGatewayAdapterCreator, StreamType } from '@discordjs/voice';
 import { Readable } from 'node:stream';
+import prism from 'prism-media';
 import { MemoryStore } from '../memory/memory.js';
 
 export type DiscordBotConfig = { token: string; clientId: string; guildId?: string; tts: { synthesizeTextToSpeech(text: string): Promise<Buffer> }; stt: { transcribeShortAudio(buf: Buffer): Promise<string> }; memory: MemoryStore };
@@ -133,8 +134,11 @@ export class DiscordBot {
     const connection = joinVoiceChannel({ channelId: anyChannel.id, guildId: guild.id, adapterCreator: guild.voiceAdapterCreator as unknown as DiscordGatewayAdapterCreator });
     await entersState(connection, VoiceConnectionStatus.Ready, 10_000).catch(() => {});
     const player = createAudioPlayer({ behaviors: { noSubscriber: NoSubscriberBehavior.Play } });
-    const stream = Readable.from(audio);
-    const resource = createAudioResource(stream);
+    const input = Readable.from(audio);
+    const transcoded = new prism.FFmpeg({ args: ['-analyzeduration', '0', '-loglevel', '0', '-f', 'mp3', '-i', 'pipe:0', '-f', 's16le', '-ar', '48000', '-ac', '2', 'pipe:1'] }).on('error', () => {});
+    const opus = new prism.opus.Encoder({ rate: 48000, channels: 2, frameSize: 960 });
+    const stream = input.pipe(transcoded).pipe(opus);
+    const resource = createAudioResource(stream, { inputType: StreamType.Opus });
     const sub = connection.subscribe(player);
     player.play(resource);
     await new Promise<void>((resolve) => {
@@ -149,8 +153,11 @@ export class DiscordBot {
     const connection = joinVoiceChannel({ channelId, guildId: guild.id, adapterCreator: guild.voiceAdapterCreator as unknown as DiscordGatewayAdapterCreator });
     await entersState(connection, VoiceConnectionStatus.Ready, 10_000).catch(() => {});
     const player = createAudioPlayer({ behaviors: { noSubscriber: NoSubscriberBehavior.Play } });
-    const stream = Readable.from(audio);
-    const resource = createAudioResource(stream);
+    const input = Readable.from(audio);
+    const transcoded = new prism.FFmpeg({ args: ['-analyzeduration', '0', '-loglevel', '0', '-f', 'mp3', '-i', 'pipe:0', '-f', 's16le', '-ar', '48000', '-ac', '2', 'pipe:1'] }).on('error', () => {});
+    const opus = new prism.opus.Encoder({ rate: 48000, channels: 2, frameSize: 960 });
+    const stream = input.pipe(transcoded).pipe(opus);
+    const resource = createAudioResource(stream, { inputType: StreamType.Opus });
     const sub = connection.subscribe(player);
     player.play(resource);
     await new Promise<void>((resolve) => { player.once(AudioPlayerStatus.Idle, () => resolve()); });

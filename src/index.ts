@@ -19,12 +19,16 @@ import { quickSentimentToEmotion, triggerEmotion } from './integrations/vtsEmoti
 import { HighlightDetector, HighlightStore } from './analytics/highlights.js';
 import { TwitchEventSub, type RedeemAction } from './integrations/twitchEventSub.js';
 import { ShowFlowScheduler, type ShowAction, type ShowStep } from './showflow/scheduler.js';
+import { apiKeyAuth, basicRateLimit } from './security/auth.js';
 
 dotenv.config();
 
 const app = express();
+app.set('trust proxy', 1);
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true }));
+app.use(basicRateLimit(Number(process.env.RATE_LIMIT_PER_MIN || 240)));
+app.use(apiKeyAuth());
 
 const server = http.createServer(app);
 
