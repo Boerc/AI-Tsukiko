@@ -303,6 +303,14 @@ server.listen(PORT, HOST, async () => {
           memory.setSetting('persona.current', action.value);
         }
       });
+      try {
+        const scopeStatus = await eventSub.checkScopes();
+        memory.setSetting('eventsub.scopes.ok', scopeStatus.ok ? 'true' : 'false');
+        if (!scopeStatus.ok) memory.setSetting('eventsub.scopes.error', scopeStatus.error || '');
+        if (!scopeStatus.ok) console.error('[EventSub] Missing scopes:', scopeStatus);
+      } catch (e) {
+        console.warn('[EventSub] Scope check failed:', e);
+      }
     } catch (err) {
       console.error('EventSub init failed:', err);
     }

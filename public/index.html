@@ -19,6 +19,10 @@
   <body>
     <h1>Tsukiko</h1>
     <p class="small">Web dashboard on port 8181</p>
+    <div id="warn" class="card" style="display:none; border-color:#f59e0b;">
+      <h3>Warning</h3>
+      <div id="warnText" class="small"></div>
+    </div>
     <div class="card">
       <h3>Auth</h3>
       <div class="row">
@@ -234,7 +238,17 @@
         alert('API key saved');
         applyGate();
       };
-      (function init(){ const v = localStorage.getItem('apiKey'); if (v) document.getElementById('apiKey').value = v; applyGate(); })();
+      (async function init(){
+        const v = localStorage.getItem('apiKey'); if (v) document.getElementById('apiKey').value = v; applyGate();
+        try {
+          const r = await fetch('/api/selftest', { headers: headers() });
+          const j = await r.json();
+          if (j.eventsubScopes && j.eventsubScopes.ok === false) {
+            document.getElementById('warnText').textContent = 'EventSub scopes missing: require ' + (j.eventsubScopes.required || []).join(', ') + (j.eventsubScopes.error ? (' ('+j.eventsubScopes.error+')') : '');
+            document.getElementById('warn').style.display = '';
+          }
+        } catch {}
+      })();
       document.getElementById('runSelfTest').onclick = async () => {
         const r = await fetch('/api/selftest', { headers: headers() });
         const j = await r.json();
