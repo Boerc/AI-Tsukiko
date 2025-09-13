@@ -44,11 +44,11 @@ export class GoogleAI {
     return transcript;
   }
 
-  async chat(prompt: string, system?: string): Promise<string> {
+  async chat(prompt: string, system?: string, safety?: any[]): Promise<string> {
     if (!this.vertex) {
       return '[Vertex AI not configured. Set GOOGLE_PROJECT_ID to enable chat]';
     }
-    const model = this.vertex.getGenerativeModel({ model: 'gemini-1.5-pro' });
+    const model = this.vertex.getGenerativeModel({ model: 'gemini-1.5-pro', safetySettings: safety });
     const input = [
       system ? { role: 'system', parts: [{ text: system }] } : null,
       { role: 'user', parts: [{ text: prompt }] }

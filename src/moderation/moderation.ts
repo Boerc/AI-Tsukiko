@@ -75,3 +75,33 @@ export class SlidingWindowRateLimiter {
   }
 }
 
+// PII redaction helpers
+const emailRegex = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
+const phoneRegex = /(?:(?:\+\d{1,3}[\s-]?)?(?:\(\d{1,4}\)[\s-]?)?\d[\d\s-]{6,}\d)/g;
+const ipRegex = /\b(?:\d{1,3}\.){3}\d{1,3}\b/g;
+const ccRegex = /\b(?:\d[ -]*?){13,19}\b/g;
+
+export function redactPII(input: string): string {
+  return input
+    .replace(emailRegex, '[redacted_email]')
+    .replace(phoneRegex, '[redacted_phone]')
+    .replace(ipRegex, '[redacted_ip]')
+    .replace(ccRegex, '[redacted_card]');
+}
+
+export function buildGoogleSafetySettings(level: 'low' | 'medium' | 'high'): any[] {
+  const map: Record<string, string> = {
+    low: 'BLOCK_NONE',
+    medium: 'BLOCK_MEDIUM_AND_ABOVE',
+    high: 'BLOCK_LOW_AND_ABOVE'
+  };
+  const threshold = map[level] ?? map.medium;
+  const cats = [
+    'HARM_CATEGORY_HATE_SPEECH',
+    'HARM_CATEGORY_HARASSMENT',
+    'HARM_CATEGORY_SEXUAL',
+    'HARM_CATEGORY_DANGEROUS_CONTENT'
+  ];
+  return cats.map(c => ({ category: c, threshold }));
+}
+

@@ -13,7 +13,7 @@ import { VtsController } from './integrations/vts.js';
 import { DiscordBot } from './integrations/discordBot.js';
 import { registerDashboardRoutes } from './dashboard/routes.js';
 import { TwitchBot } from './integrations/twitch.js';
-import { defaultModeration, moderateText, moderateTextAdvanced, defaultAdvancedModeration, SlidingWindowRateLimiter } from './moderation/moderation.js';
+import { defaultModeration, moderateText, moderateTextAdvanced, defaultAdvancedModeration, SlidingWindowRateLimiter, redactPII, buildGoogleSafetySettings } from './moderation/moderation.js';
 import { getPersona } from './persona/persona.js';
 import { quickSentimentToEmotion, triggerEmotion } from './integrations/vtsEmotions.js';
 import { HighlightDetector, HighlightStore } from './analytics/highlights.js';
@@ -21,12 +21,14 @@ import { TwitchEventSub, type RedeemAction } from './integrations/twitchEventSub
 import { ShowFlowScheduler, type ShowAction, type ShowStep } from './showflow/scheduler.js';
 import { apiKeyAuth, basicRateLimit } from './security/auth.js';
 import { metrics } from './metrics/metrics.js';
+import helmet from 'helmet';
 
 dotenv.config();
 
 const app = express();
 app.set('trust proxy', 1);
 app.use((req, _res, next) => { metrics.counters.http_requests_total.inc({ path: req.path, method: req.method }); next(); });
+app.use(helmet());
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(basicRateLimit(Number(process.env.RATE_LIMIT_PER_MIN || 240)));
@@ -84,7 +86,8 @@ const discord = new DiscordBot({
   chat: {
     reply: async (text: string, system?: string) => {
       const t0 = Date.now();
-      const resp = await google.chat(text, system);
+      const level = (memory.getAllSettings()['speech.profanity'] || 'medium') as 'low'|'medium'|'high';
+      const resp = await google.chat(redactPII(text), system, buildGoogleSafetySettings(level));
       metrics.histograms.llm_latency_ms.observe({ path: 'discord' }, Date.now() - t0);
       metrics.counters.chat_replies_total.inc({ platform: 'discord' });
       return resp;
@@ -130,10 +133,11 @@ if (config.twitch) {
         // Persona
         const personaId = memory.getAllSettings()['persona.current'] || process.env.PERSONALITY_PRESET || 'default';
         const persona = getPersona(personaId);
-        const prompt = `${username}: ${mod.sanitized}`;
+        const level = (memory.getAllSettings()['speech.profanity'] || 'medium') as 'low'|'medium'|'high';
+        const prompt = `${username}: ${redactPII(mod.sanitized || '')}`;
         const system = persona.systemPrompt;
         const t0 = Date.now();
-        const response = await google.chat(prompt, system);
+        const response = await google.chat(prompt, system, buildGoogleSafetySettings(level));
         metrics.histograms.llm_latency_ms.observe({ path: 'twitch' }, Date.now() - t0);
 
         // VTS emotion
