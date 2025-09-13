@@ -40,6 +40,20 @@ export function registerDashboardRoutes(app: express.Express, ctx: Ctx) {
     res.json({ ok: true });
   });
 
+  app.get('/api/redeems', (_req, res) => {
+    const settings = ctx.memory.getAllSettings();
+    const entries = Object.entries(settings).filter(([k]) => k.startsWith('redeem.'));
+    res.json({ redeems: Object.fromEntries(entries) });
+  });
+
+  app.post('/api/redeems', (req, res) => {
+    const entries = req.body ?? {};
+    for (const [k, v] of Object.entries(entries)) {
+      ctx.memory.setSetting(`redeem.${k}`, String(v));
+    }
+    res.json({ ok: true });
+  });
+
   // Highlights endpoints are backed by a store added in index.ts using the DB
   // To avoid tight coupling, these are stubs. Implementations are wired in index.
 }

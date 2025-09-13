@@ -6,7 +6,7 @@ export type AppConfig = {
   discord: { token: string; clientId: string; guildId: string | null };
   obs: { host: string; port: number; password: string };
   vts: { host: string; port: number; pluginName: string; pluginAuthor: string; pluginIconUrl: string; authToken: string };
-  twitch?: { username: string; oauth: string; channels: string[] };
+  twitch?: { username: string; oauth: string; channels: string[]; clientId?: string; accessToken?: string; broadcasterUserId?: string };
 };
 
 export function loadConfig(): AppConfig {
@@ -44,7 +44,10 @@ export function loadConfig(): AppConfig {
     ? {
         username: process.env.TWITCH_USERNAME!,
         oauth: process.env.TWITCH_OAUTH!,
-        channels: process.env.TWITCH_CHANNELS!.split(',').map(s => s.trim()).filter(Boolean)
+        channels: process.env.TWITCH_CHANNELS!.split(',').map(s => s.trim()).filter(Boolean),
+        clientId: process.env.TWITCH_CLIENT_ID,
+        accessToken: process.env.TWITCH_ACCESS_TOKEN,
+        broadcasterUserId: process.env.TWITCH_BROADCASTER_ID
       }
     : undefined;
 

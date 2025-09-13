@@ -101,6 +101,25 @@
       <button id="refreshHighlights">Refresh</button>
       <pre id="highlights"></pre>
     </div>
+    <div class="card">
+      <h3>Redeems</h3>
+      <p class="small">Map channel point reward title to an action (vts_expression:<name>, obs_hotkey:<name>, persona:<id>).</p>
+      <div class="row">
+        <div>
+          <label>Reward Title</label>
+          <input id="redeemTitle" placeholder="e.g. Smile" />
+        </div>
+        <div>
+          <label>Action</label>
+          <input id="redeemAction" placeholder="e.g. vts_expression:Smile" />
+        </div>
+      </div>
+      <div style="margin-top: 12px; display:flex; gap:8px;">
+        <button id="saveRedeem">Save Mapping</button>
+        <button id="loadRedeems">Load</button>
+      </div>
+      <pre id="redeemsOut"></pre>
+    </div>
     <script>
       async function refreshHealth(){
         const r = await fetch('/api/health');
@@ -150,6 +169,18 @@
         }catch(e){ document.getElementById('highlights').textContent = String(e); }
       }
       document.getElementById('refreshHighlights').onclick = refreshHighlights;
+      document.getElementById('saveRedeem').onclick = async () => {
+        const k = document.getElementById('redeemTitle').value.trim();
+        const v = document.getElementById('redeemAction').value.trim();
+        const body = {}; body[k] = v;
+        await fetch('/api/redeems', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        alert('Saved');
+      };
+      document.getElementById('loadRedeems').onclick = async () => {
+        const r = await fetch('/api/redeems');
+        const j = await r.json();
+        document.getElementById('redeemsOut').textContent = JSON.stringify(j, null, 2);
+      };
     </script>
   </body>
   </html>

@@ -17,6 +17,7 @@ import { defaultModeration, moderateText } from './moderation/moderation.js';
 import { getPersona } from './persona/persona.js';
 import { quickSentimentToEmotion, triggerEmotion } from './integrations/vtsEmotions.js';
 import { HighlightDetector, HighlightStore } from './analytics/highlights.js';
+import { TwitchEventSub, type RedeemAction } from './integrations/twitchEventSub.js';
 
 dotenv.config();
 
@@ -66,6 +67,7 @@ const discord = new DiscordBot({
 
 // Optional Twitch bot
 let twitch: TwitchBot | null = null;
+let eventSub: TwitchEventSub | null = null;
 if (config.twitch) {
   twitch = new TwitchBot(
     { username: config.twitch.username, oauth: config.twitch.oauth, channels: config.twitch.channels },
@@ -151,6 +153,32 @@ server.listen(PORT, HOST, async () => {
       await twitch.connect();
     } catch (err) {
       console.error('Twitch connect failed:', err);
+    }
+  }
+  if (config.twitch?.clientId && config.twitch.accessToken && config.twitch.broadcasterUserId) {
+    try {
+      eventSub = new TwitchEventSub({ clientId: config.twitch.clientId, accessToken: config.twitch.accessToken, broadcasterUserId: config.twitch.broadcasterUserId });
+      // Load saved redeem mappings
+      const settings = memory.getAllSettings();
+      const mapEntries = Object.entries(settings).filter(([k]) => k.startsWith('redeem.'));
+      for (const [k, v] of mapEntries) {
+        const title = k.replace(/^redeem\./, '');
+        const [type, value] = String(v).split(':', 2);
+        eventSub.setRedeemAction(title, { type: type as any, value });
+      }
+      await eventSub.subscribeToRedemptions(config.twitch.broadcasterUserId, async (_title, action) => {
+        if (!action) return;
+        if (action.type === 'vts_expression') {
+          vts.setExpression(action.value, 1.0);
+          setTimeout(() => vts.setExpression(action.value, 0.0), 1200);
+        } else if (action.type === 'obs_hotkey') {
+          await obs.triggerHotkey(action.value);
+        } else if (action.type === 'persona') {
+          memory.setSetting('persona.current', action.value);
+        }
+      });
+    } catch (err) {
+      console.error('EventSub init failed:', err);
     }
   }
 });
