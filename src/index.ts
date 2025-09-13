@@ -189,11 +189,17 @@ app.get('/api/highlights', (_req, res) => {
 
 // Self-test endpoint
 app.get('/api/selftest', (_req, res) => {
-  res.json({
+  const base = {
     obs: obs.getStatus(),
     vts: vts.getStatus(),
     eventsub: eventSub ? eventSub.getStatus() : { connected: false }
-  });
+  };
+  const done = async () => {
+    if (!eventSub) return base;
+    const scopes = await eventSub.checkScopes().catch(() => ({ ok: false }));
+    return { ...base, eventsubScopes: scopes };
+  };
+  done().then(x => res.json(x)).catch(e => res.status(500).json({ error: String(e) }));
 });
 
 app.post('/api/eventsub/resubscribe', async (_req, res) => {

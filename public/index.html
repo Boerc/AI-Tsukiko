@@ -136,7 +136,10 @@
       <h3>Show Flow</h3>
     <div class="card gated">
       <h3>Self-Test</h3>
-      <button id="runSelfTest">Run Self-Test</button>
+      <div style="display:flex; gap:8px;">
+        <button id="runSelfTest">Run Self-Test</button>
+        <button id="resubEventSub">Resubscribe EventSub</button>
+      </div>
       <pre id="selfTestOut"></pre>
     </div>
       <p class="small">Cron-based steps. Example: {"cron":"0 * * * *","actions":[{"kind":"obs_scene","value":"Just Chatting"}]}.</p>
@@ -236,6 +239,11 @@
         const r = await fetch('/api/selftest', { headers: headers() });
         const j = await r.json();
         document.getElementById('selfTestOut').textContent = JSON.stringify(j, null, 2);
+      };
+      document.getElementById('resubEventSub').onclick = async () => {
+        const h = headers(); h['Content-Type'] = 'application/json';
+        const r = await fetch('/api/eventsub/resubscribe', { method: 'POST', headers: h, body: '{}' });
+        if (r.ok) alert('Resubscribe requested'); else alert('Resubscribe failed');
       };
       document.getElementById('loadShowflow').onclick = async () => {
         const r = await fetch('/api/showflow');

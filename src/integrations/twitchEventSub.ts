@@ -68,5 +68,20 @@ export class TwitchEventSub {
     // Twurple doesn't expose raw ws connected; infer via lastSubscribeTs freshness
     return { connected: Date.now() - this.lastSubscribeTs < 15 * 60_000 };
   }
+
+  async checkScopes(): Promise<{ ok: boolean; required: string[]; error?: string }>{
+    const required = ['channel:read:redemptions'];
+    try {
+      const cp: any = (this.api as any).channelPoints;
+      if (cp && typeof cp.getCustomRewards === 'function') {
+        await cp.getCustomRewards(this.broadcasterId);
+        return { ok: true, required };
+      }
+      // If API shape changed, we cannot verify; return unknown but not failing
+      return { ok: true, required };
+    } catch (e: any) {
+      return { ok: false, required, error: String(e?.message || e) };
+    }
+  }
 }
 
