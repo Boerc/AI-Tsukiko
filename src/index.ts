@@ -20,11 +20,13 @@ import { HighlightDetector, HighlightStore } from './analytics/highlights.js';
 import { TwitchEventSub, type RedeemAction } from './integrations/twitchEventSub.js';
 import { ShowFlowScheduler, type ShowAction, type ShowStep } from './showflow/scheduler.js';
 import { apiKeyAuth, basicRateLimit } from './security/auth.js';
+import { metrics } from './metrics/metrics.js';
 
 dotenv.config();
 
 const app = express();
 app.set('trust proxy', 1);
+app.use((req, _res, next) => { metrics.counters.http_requests_total.inc({ path: req.path, method: req.method }); next(); });
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(basicRateLimit(Number(process.env.RATE_LIMIT_PER_MIN || 240)));
@@ -69,9 +71,33 @@ const discord = new DiscordBot({
   token: config.discord.token,
   clientId: config.discord.clientId,
   guildId: config.discord.guildId ?? undefined,
-  tts: google,
+  tts: {
+    synthesizeTextToSpeech: async (text: string, voice?: string) => {
+      const t0 = Date.now();
+      const buf = await google.synthesizeTextToSpeech(text, voice);
+      metrics.histograms.tts_latency_ms.observe({ voice: voice || '' }, Date.now() - t0);
+      return buf;
+    }
+  },
   stt: google,
-  memory
+  memory,
+  chat: {
+    reply: async (text: string, system?: string) => {
+      const t0 = Date.now();
+      const resp = await google.chat(text, system);
+      metrics.histograms.llm_latency_ms.observe({ path: 'discord' }, Date.now() - t0);
+      metrics.counters.chat_replies_total.inc({ platform: 'discord' });
+      return resp;
+    }
+  },
+  persona: {
+    getPersonaId: () => {
+      const s = memory.getAllSettings();
+      return s['persona.current'] || s['personality.preset'] || 'default';
+    },
+    getSystemPrompt: (id: string) => getPersona(id).systemPrompt,
+    getVoiceFor: (id: string) => getPersona(id).ttsVoice
+  }
 });
 
 // Optional Twitch bot
@@ -106,7 +132,9 @@ if (config.twitch) {
         const persona = getPersona(personaId);
         const prompt = `${username}: ${mod.sanitized}`;
         const system = persona.systemPrompt;
+        const t0 = Date.now();
         const response = await google.chat(prompt, system);
+        metrics.histograms.llm_latency_ms.observe({ path: 'twitch' }, Date.now() - t0);
 
         // VTS emotion
         const emotion = quickSentimentToEmotion(response);
@@ -115,6 +143,7 @@ if (config.twitch) {
         // Reply
         const safeReply = response.slice(0, 300);
         await reply(safeReply);
+        metrics.counters.chat_replies_total.inc({ platform: 'twitch' });
       }
       ,
       onChatCount: (count: number) => {
@@ -138,7 +167,8 @@ app.get('/api/health', (_req, res) => {
 app.get('/metrics', (_req, res) => {
   const lines = [
     `process_uptime_seconds ${Math.round(process.uptime())}`,
-    `nodejs_memory_rss_bytes ${process.memoryUsage().rss}`
+    `nodejs_memory_rss_bytes ${process.memoryUsage().rss}`,
+    metrics.renderAll()
   ];
   res.set('Content-Type', 'text/plain');
   res.send(lines.join('\n'));

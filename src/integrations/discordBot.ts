@@ -4,7 +4,7 @@ import { Readable } from 'node:stream';
 import prism from 'prism-media';
 import { MemoryStore } from '../memory/memory.js';
 
-export type DiscordBotConfig = { token: string; clientId: string; guildId?: string; tts: { synthesizeTextToSpeech(text: string): Promise<Buffer> }; stt: { transcribeShortAudio(buf: Buffer): Promise<string> }; memory: MemoryStore };
+export type DiscordBotConfig = { token: string; clientId: string; guildId?: string; tts: { synthesizeTextToSpeech(text: string, voiceName?: string): Promise<Buffer> }; stt: { transcribeShortAudio(buf: Buffer): Promise<string> }; memory: MemoryStore, chat?: { reply(text: string, system?: string): Promise<string> }, persona?: { getPersonaId(): string, getSystemPrompt(id: string): string, getVoiceFor(id: string): string | undefined } };
 
 export class DiscordBot {
   private client: Client;
@@ -86,7 +86,14 @@ export class DiscordBot {
     }
     if (name === 'say') {
       const text = interaction.options.getString('text', true);
-      await interaction.reply({ content: text });
+      if (this.config.chat && this.config.persona) {
+        const id = this.config.persona.getPersonaId();
+        const system = this.config.persona.getSystemPrompt(id);
+        const resp = await this.config.chat.reply(text, system);
+        await interaction.reply({ content: resp.slice(0, 1800) });
+      } else {
+        await interaction.reply({ content: text });
+      }
       return;
     }
     if (name === 'persona') {
@@ -112,7 +119,16 @@ export class DiscordBot {
       if (name === 'tts') {
         const text = interaction.options.getString('text', true);
         await interaction.deferReply({ ephemeral: true });
-        const audio = await this.config.tts.synthesizeTextToSpeech(text);
+        let speak = text;
+        if (this.config.chat && this.config.persona) {
+          const id = this.config.persona.getPersonaId();
+          const system = this.config.persona.getSystemPrompt(id);
+          speak = await this.config.chat.reply(text, system);
+        }
+        const voice = this.config.persona?.getVoiceFor(this.config.persona.getPersonaId()) || undefined;
+        const t0 = Date.now();
+        const audio = await this.config.tts.synthesizeTextToSpeech(speak, voice);
+        // Metrics handled in caller; keep this minimal
         await this.playInChannel(interaction.guildId!, channelId, audio);
         await interaction.editReply({ content: 'Spoken.' });
         return;

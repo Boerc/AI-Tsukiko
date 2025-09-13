@@ -30,3 +30,7 @@ export function getPersona(id?: string): Persona {
   return Personas[id] ?? Personas.default;
 }
 
+export function getCurrentPersonaIdFromSettings(settings: Record<string,string>): string {
+  return settings['persona.current'] || settings['personality.preset'] || 'default';
+}
+

@@ -15,6 +15,8 @@ export class TwitchEventSub {
   private listener: EventSubWsListener;
   private redeemsMap: Map<string, RedeemAction> = new Map();
   private broadcasterId: string;
+  private keepaliveTimer: NodeJS.Timeout | null = null;
+  private lastSubscribeTs = 0;
 
   constructor(cfg: EventSubConfig) {
     const auth = new StaticAuthProvider(cfg.clientId, cfg.accessToken);
@@ -22,6 +24,7 @@ export class TwitchEventSub {
     this.listener = new EventSubWsListener({ apiClient: this.api });
     this.listener.start();
     this.broadcasterId = cfg.broadcasterUserId;
+    this.startKeepalive();
   }
 
   setRedeemAction(title: string, action: RedeemAction) {
@@ -43,7 +46,18 @@ export class TwitchEventSub {
         const action = this.redeemsMap.get(title.toLowerCase());
         onRedeem(title, action);
       });
+      this.lastSubscribeTs = Date.now();
     }
+  }
+
+  private startKeepalive() {
+    if (this.keepaliveTimer) return;
+    this.keepaliveTimer = setInterval(async () => {
+      const since = Date.now() - this.lastSubscribeTs;
+      if (since > 10 * 60_000) {
+        try { await this.subscribeToRedemptions(this.broadcasterId, () => {}); } catch {}
+      }
+    }, 60_000);
   }
 }
 
