@@ -196,6 +196,16 @@ app.get('/api/selftest', (_req, res) => {
   });
 });
 
+app.post('/api/eventsub/resubscribe', async (_req, res) => {
+  try {
+    if (!eventSub || !config.twitch?.broadcasterUserId) return res.status(400).json({ error: 'EventSub not configured' });
+    await eventSub.subscribeToRedemptions(config.twitch.broadcasterUserId, () => {});
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: String(e) });
+  }
+});
+
 app.get('/api/showflow', (_req, res) => {
   try {
     const stepsRaw = memory.getMemory('showflow.steps', 'global');

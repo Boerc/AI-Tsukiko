@@ -44,9 +44,13 @@ export class TwitchEventSub {
       await sub.call(this.listener, broadcasterUserId, (e: any) => {
         const title: string = e?.rewardTitle ?? '';
         const action = this.redeemsMap.get(title.toLowerCase());
+        try { console.log('[EventSub] redeem', title); } catch {}
         onRedeem(title, action);
       });
       this.lastSubscribeTs = Date.now();
+      try { console.log('[EventSub] subscribed to redemptions for', broadcasterUserId); } catch {}
+    } else {
+      try { console.warn('[EventSub] subscribe method not found'); } catch {}
     }
   }
 

@@ -31,12 +31,12 @@
         <button id="saveApiKey">Save</button>
       </div>
     </div>
-    <div class="card">
+    <div class="card gated">
       <h3>Health</h3>
       <pre id="health">Loading...</pre>
       <button id="refreshHealth">Refresh</button>
     </div>
-    <div class="card">
+    <div class="card gated">
       <h3>Global Memory</h3>
       <div class="row">
         <div>
@@ -54,7 +54,7 @@
       </div>
       <pre id="memOut"></pre>
     </div>
-    <div class="card">
+    <div class="card gated">
       <h3>Settings</h3>
       <div class="row">
         <div>
@@ -78,7 +78,7 @@
         <button id="switchPersona">Switch Persona</button>
       </div>
     </div>
-    <div class="card">
+    <div class="card gated">
       <h3>Moderation</h3>
       <div class="row">
         <div>
@@ -107,13 +107,13 @@
         <button id="saveModeration">Save Moderation</button>
       </div>
     </div>
-    <div class="card">
+    <div class="card gated">
       <h3>Highlights</h3>
       <p class="small">Chat spike detection creates OBS record markers and saves entries here.</p>
       <button id="refreshHighlights">Refresh</button>
       <pre id="highlights"></pre>
     </div>
-    <div class="card">
+    <div class="card gated">
       <h3>Redeems</h3>
       <p class="small">Map channel point reward title to an action (vts_expression:<name>, obs_hotkey:<name>, persona:<id>).</p>
       <div class="row">
@@ -132,8 +132,13 @@
       </div>
       <pre id="redeemsOut"></pre>
     </div>
-    <div class="card">
+    <div class="card gated">
       <h3>Show Flow</h3>
+    <div class="card gated">
+      <h3>Self-Test</h3>
+      <button id="runSelfTest">Run Self-Test</button>
+      <pre id="selfTestOut"></pre>
+    </div>
       <p class="small">Cron-based steps. Example: {"cron":"0 * * * *","actions":[{"kind":"obs_scene","value":"Just Chatting"}]}.</p>
       <div>
         <label>Steps JSON</label>
@@ -150,6 +155,10 @@
         const k = localStorage.getItem('apiKey');
         if (k) { h['x-api-key'] = k; }
         return h;
+      }
+      function applyGate(){
+        const hasKey = !!localStorage.getItem('apiKey') || !document.getElementById('apiKey');
+        document.querySelectorAll('.gated').forEach(el => { el.style.display = hasKey ? '' : 'none'; });
       }
       async function refreshHealth(){
         const r = await fetch('/api/health', { headers: headers() });
@@ -220,8 +229,14 @@
         const v = document.getElementById('apiKey').value.trim();
         if (v) localStorage.setItem('apiKey', v); else localStorage.removeItem('apiKey');
         alert('API key saved');
+        applyGate();
       };
-      (function init(){ const v = localStorage.getItem('apiKey'); if (v) document.getElementById('apiKey').value = v; })();
+      (function init(){ const v = localStorage.getItem('apiKey'); if (v) document.getElementById('apiKey').value = v; applyGate(); })();
+      document.getElementById('runSelfTest').onclick = async () => {
+        const r = await fetch('/api/selftest', { headers: headers() });
+        const j = await r.json();
+        document.getElementById('selfTestOut').textContent = JSON.stringify(j, null, 2);
+      };
       document.getElementById('loadShowflow').onclick = async () => {
         const r = await fetch('/api/showflow');
         const j = await r.json();
