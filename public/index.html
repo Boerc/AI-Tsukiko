@@ -143,6 +143,8 @@
       <div style="display:flex; gap:8px;">
         <button id="runSelfTest">Run Self-Test</button>
         <button id="resubEventSub">Resubscribe EventSub</button>
+        <input id="testRedeemTitle" placeholder="Test reward title" style="flex:1;" />
+        <button id="testRedeem">Test Redeem</button>
       </div>
       <pre id="selfTestOut"></pre>
     </div>
@@ -258,6 +260,13 @@
         const h = headers(); h['Content-Type'] = 'application/json';
         const r = await fetch('/api/eventsub/resubscribe', { method: 'POST', headers: h, body: '{}' });
         if (r.ok) alert('Resubscribe requested'); else alert('Resubscribe failed');
+      };
+      document.getElementById('testRedeem').onclick = async () => {
+        const title = document.getElementById('testRedeemTitle').value.trim() || 'Test Reward';
+        const h = headers(); h['Content-Type'] = 'application/json';
+        const r = await fetch('/api/eventsub/test', { method: 'POST', headers: h, body: JSON.stringify({ title }) });
+        const j = await r.json();
+        document.getElementById('selfTestOut').textContent = JSON.stringify(j, null, 2);
       };
       document.getElementById('loadShowflow').onclick = async () => {
         const r = await fetch('/api/showflow');

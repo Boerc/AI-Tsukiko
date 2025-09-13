@@ -212,6 +212,26 @@ app.post('/api/eventsub/resubscribe', async (_req, res) => {
   }
 });
 
+app.post('/api/eventsub/test', async (req, res) => {
+  try {
+    const title: string = req.body?.title || 'Test Reward';
+    if (!eventSub) return res.status(400).json({ error: 'EventSub not configured' });
+    const action = (eventSub as any).getActionForTitle ? (eventSub as any).getActionForTitle(title) : undefined;
+    // Reuse the same logic as redemption callback
+    if (action) {
+      if (action.type === 'vts_expression') { vts.setExpression(action.value, 1.0); setTimeout(() => vts.setExpression(action.value, 0.0), 1200); }
+      else if (action.type === 'obs_hotkey') await obs.triggerHotkey(action.value);
+      else if (action.type === 'obs_scene') await obs.setScene(action.value);
+      else if (action.type === 'toggle_filter') await obs.triggerHotkey(action.value);
+      else if (action.type === 'play_sfx') await obs.triggerHotkey(action.value);
+      else if (action.type === 'persona') memory.setSetting('persona.current', action.value);
+    }
+    res.json({ ok: true, title, action: action || null });
+  } catch (e) {
+    res.status(500).json({ error: String(e) });
+  }
+});
+
 app.get('/api/showflow', (_req, res) => {
   try {
     const stepsRaw = memory.getMemory('showflow.steps', 'global');

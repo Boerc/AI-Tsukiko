@@ -31,6 +31,10 @@ export class TwitchEventSub {
     this.redeemsMap.set(title.toLowerCase(), action);
   }
 
+  getActionForTitle(title: string): RedeemAction | undefined {
+    return this.redeemsMap.get(String(title).toLowerCase());
+  }
+
   async subscribeToRedemptions(broadcasterUserId: string, onRedeem: (title: string, action: RedeemAction | undefined) => void) {
     // Use official API route via ApiClient to get user info and ensure token scopes are fine
     try {
