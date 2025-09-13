@@ -240,6 +240,31 @@ app.post('/api/eventsub/test', async (req, res) => {
   }
 });
 
+app.post('/api/summaries/user', async (req, res) => {
+  try {
+    const userId: string = req.body?.userId;
+    if (!userId) return res.status(400).json({ error: 'userId required' });
+    const text = await summarizer.summarizeUser(userId);
+    res.json({ ok: true, summary: text });
+  } catch (e) {
+    res.status(500).json({ error: String(e) });
+  }
+});
+
+app.post('/api/summaries/all', async (_req, res) => {
+  try {
+    // Summarize users with recent messages
+    const rows = (db.prepare('SELECT DISTINCT user_id as id FROM messages WHERE user_id IS NOT NULL AND created_at > ? LIMIT 200').all(Date.now() - 7*24*60*60*1000) as any[]).map(r => r.id).filter(Boolean);
+    const results: Record<string, string> = {};
+    for (const uid of rows) {
+      results[uid] = await summarizer.summarizeUser(uid);
+    }
+    res.json({ ok: true, count: rows.length });
+  } catch (e) {
+    res.status(500).json({ error: String(e) });
+  }
+});
+
 app.get('/api/showflow', (_req, res) => {
   try {
     const stepsRaw = memory.getMemory('showflow.steps', 'global');
