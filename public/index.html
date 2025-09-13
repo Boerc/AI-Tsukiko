@@ -22,6 +22,7 @@
     <div id="warn" class="card" style="display:none; border-color:#f59e0b;">
       <h3>Warning</h3>
       <div id="warnText" class="small"></div>
+      <div class="small">If missing permissions, generate a Twitch token with required scopes (e.g., channel:read:redemptions) and set <code>TWITCH_ACCESS_TOKEN</code>. Then click Resubscribe.</div>
     </div>
     <div class="card">
       <h3>Auth</h3>
@@ -240,22 +241,25 @@
         alert('API key saved');
         applyGate();
       };
-      (async function init(){
-        const v = localStorage.getItem('apiKey'); if (v) document.getElementById('apiKey').value = v; applyGate();
+      async function refreshSelfTest(){
         try {
           const r = await fetch('/api/selftest', { headers: headers() });
           const j = await r.json();
+          document.getElementById('selfTestOut').textContent = JSON.stringify(j, null, 2);
           if (j.eventsubScopes && j.eventsubScopes.ok === false) {
             document.getElementById('warnText').textContent = 'EventSub scopes missing: require ' + (j.eventsubScopes.required || []).join(', ') + (j.eventsubScopes.error ? (' ('+j.eventsubScopes.error+')') : '');
             document.getElementById('warn').style.display = '';
+          } else {
+            document.getElementById('warn').style.display = 'none';
           }
         } catch {}
+      }
+      (async function init(){
+        const v = localStorage.getItem('apiKey'); if (v) document.getElementById('apiKey').value = v; applyGate();
+        try { await refreshSelfTest(); } catch {}
+        setInterval(refreshSelfTest, 30000);
       })();
-      document.getElementById('runSelfTest').onclick = async () => {
-        const r = await fetch('/api/selftest', { headers: headers() });
-        const j = await r.json();
-        document.getElementById('selfTestOut').textContent = JSON.stringify(j, null, 2);
-      };
+      document.getElementById('runSelfTest').onclick = refreshSelfTest;
       document.getElementById('resubEventSub').onclick = async () => {
         const h = headers(); h['Content-Type'] = 'application/json';
         const r = await fetch('/api/eventsub/resubscribe', { method: 'POST', headers: h, body: '{}' });
