@@ -26,5 +26,17 @@ export function registerDashboardRoutes(app: express.Express, ctx: Ctx) {
     ctx.memory.setMemory(req.params.key, value, 'global');
     res.json({ ok: true });
   });
+
+  app.post('/api/persona', (req, res) => {
+    const { id } = req.body as { id: string };
+    ctx.memory.setSetting('persona.current', id);
+    res.json({ ok: true, id });
+  });
+
+  app.post('/api/moderation', (req, res) => {
+    const body = req.body ?? {};
+    Object.entries(body).forEach(([k, v]) => ctx.memory.setSetting(`moderation.${k}`, String(v)));
+    res.json({ ok: true });
+  });
 }
 

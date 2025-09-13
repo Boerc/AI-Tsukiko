@@ -47,7 +47,10 @@
       <div class="row">
         <div>
           <label>Personality Preset</label>
-          <input id="personality" placeholder="default" />
+          <select id="personality">
+            <option value="default" selected>default</option>
+            <option value="evil">evil</option>
+          </select>
         </div>
         <div>
           <label>Profanity Level</label>
@@ -60,6 +63,36 @@
       </div>
       <div style="margin-top: 12px;">
         <button id="saveSettings">Save</button>
+        <button id="switchPersona">Switch Persona</button>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Moderation</h3>
+      <div class="row">
+        <div>
+          <label>Enabled</label>
+          <select id="modEnabled">
+            <option value="true" selected>true</option>
+            <option value="false">false</option>
+          </select>
+        </div>
+        <div>
+          <label>Max Caps %</label>
+          <input id="modCaps" type="number" value="70" />
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>Max Length</label>
+          <input id="modLen" type="number" value="400" />
+        </div>
+        <div>
+          <label>Blocklist (comma-separated)</label>
+          <input id="modBlock" placeholder="word1,word2" />
+        </div>
+      </div>
+      <div style="margin-top: 12px;">
+        <button id="saveModeration">Save Moderation</button>
       </div>
     </div>
     <script>
@@ -89,6 +122,19 @@
         const profanity = document.getElementById('profanity').value.trim();
         const r = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ 'personality.preset': personality, 'speech.profanity': profanity }) });
         if (r.ok) alert('Saved');
+      };
+      document.getElementById('switchPersona').onclick = async () => {
+        const id = document.getElementById('personality').value.trim();
+        const r = await fetch('/api/persona', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) });
+        if (r.ok) alert('Persona switched');
+      };
+      document.getElementById('saveModeration').onclick = async () => {
+        const enabled = document.getElementById('modEnabled').value;
+        const caps = document.getElementById('modCaps').value;
+        const len = document.getElementById('modLen').value;
+        const block = document.getElementById('modBlock').value;
+        await fetch('/api/moderation', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled, maxCapsPercent: caps, maxLength: len, blocklist: block }) });
+        alert('Moderation saved');
       };
     </script>
   </body>

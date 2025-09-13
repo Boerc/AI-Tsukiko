@@ -12,6 +12,10 @@ import { ObsController } from './integrations/obs.js';
 import { VtsController } from './integrations/vts.js';
 import { DiscordBot } from './integrations/discordBot.js';
 import { registerDashboardRoutes } from './dashboard/routes.js';
+import { TwitchBot } from './integrations/twitch.js';
+import { defaultModeration, moderateText } from './moderation/moderation.js';
+import { getPersona } from './persona/persona.js';
+import { quickSentimentToEmotion, triggerEmotion } from './integrations/vtsEmotions.js';
 
 dotenv.config();
 
@@ -57,6 +61,38 @@ const discord = new DiscordBot({
   memory
 });
 
+// Optional Twitch bot
+let twitch: TwitchBot | null = null;
+if (config.twitch) {
+  twitch = new TwitchBot(
+    { username: config.twitch.username, oauth: config.twitch.oauth, channels: config.twitch.channels },
+    {
+      memory,
+      chatHandler: async ({ channel, username, message, reply }) => {
+        // Moderation
+        const modSettings = defaultModeration();
+        const mod = moderateText(message, modSettings);
+        if (!mod.allowed) return;
+
+        // Persona
+        const personaId = memory.getAllSettings()['persona.current'] || process.env.PERSONALITY_PRESET || 'default';
+        const persona = getPersona(personaId);
+        const prompt = `${username}: ${mod.sanitized}`;
+        const system = persona.systemPrompt;
+        const response = await google.chat(prompt, system);
+
+        // VTS emotion
+        const emotion = quickSentimentToEmotion(response);
+        triggerEmotion(vts, emotion);
+
+        // Reply
+        const safeReply = response.slice(0, 300);
+        await reply(safeReply);
+      }
+    }
+  );
+}
+
 // Basic health and info
 app.get('/api/health', (_req, res) => {
   res.json({ ok: true, service: 'Tsukiko', uptimeSec: Math.round(process.uptime()) });
@@ -88,6 +124,13 @@ server.listen(PORT, HOST, async () => {
   } catch (err) {
     console.error('Discord login failed:', err);
   }
+  if (twitch) {
+    try {
+      await twitch.connect();
+    } catch (err) {
+      console.error('Twitch connect failed:', err);
+    }
+  }
 });
 
 process.on('SIGINT', async () => {
@@ -95,6 +138,7 @@ process.on('SIGINT', async () => {
   await obs.disconnect().catch(() => {});
   await vts.disconnect().catch(() => {});
   await discord.destroy().catch(() => {});
+  if (twitch) await twitch.disconnect().catch(() => {});
   process.exit(0);
 });
 

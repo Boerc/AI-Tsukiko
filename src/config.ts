@@ -6,6 +6,7 @@ export type AppConfig = {
   discord: { token: string; clientId: string; guildId: string | null };
   obs: { host: string; port: number; password: string };
   vts: { host: string; port: number; pluginName: string; pluginAuthor: string; pluginIconUrl: string; authToken: string };
+  twitch?: { username: string; oauth: string; channels: string[] };
 };
 
 export function loadConfig(): AppConfig {
@@ -39,6 +40,14 @@ export function loadConfig(): AppConfig {
     authToken: process.env.VTS_AUTH_TOKEN || ''
   };
 
-  return { host, port, dataDir, google, discord, obs, vts };
+  const twitch = process.env.TWITCH_USERNAME && process.env.TWITCH_OAUTH && process.env.TWITCH_CHANNELS
+    ? {
+        username: process.env.TWITCH_USERNAME!,
+        oauth: process.env.TWITCH_OAUTH!,
+        channels: process.env.TWITCH_CHANNELS!.split(',').map(s => s.trim()).filter(Boolean)
+      }
+    : undefined;
+
+  return { host, port, dataDir, google, discord, obs, vts, twitch };
 }
 
