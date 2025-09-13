@@ -37,9 +37,21 @@ export class ObsController {
   async createRecordMarker(markerName: string): Promise<void> {
     if (!this.connected) return;
     try {
-      await (this.client as unknown as { call: (name: string, args: any) => Promise<any> }).call('CreateRecordMarker', { markerName });
+      const raw = this.client as unknown as { call: (name: string, args: any) => Promise<any> };
+      if (typeof raw.call === 'function') {
+        await raw.call('CreateRecordMarker', { markerName });
+      }
     } catch {
       // Not all OBS versions support this; ignore
+    }
+  }
+
+  async supportsRecordMarker(): Promise<boolean> {
+    try {
+      await this.createRecordMarker('__probe__');
+      return true;
+    } catch {
+      return false;
     }
   }
 

@@ -61,6 +61,9 @@ const vts = new VtsController({
   pluginAuthor: config.vts.pluginAuthor,
   pluginIconUrl: config.vts.pluginIconUrl,
   authToken: config.vts.authToken
+}, {
+  getToken: async () => memory.getAllSettings()['vts.token'] || null,
+  saveToken: async (t: string) => { memory.setSetting('vts.token', t); }
 });
 const discord = new DiscordBot({
   token: config.discord.token,
@@ -129,6 +132,16 @@ if (config.twitch) {
 // Basic health and info
 app.get('/api/health', (_req, res) => {
   res.json({ ok: true, service: 'Tsukiko', uptimeSec: Math.round(process.uptime()) });
+});
+
+// Prometheus-like metrics (very lightweight placeholder)
+app.get('/metrics', (_req, res) => {
+  const lines = [
+    `process_uptime_seconds ${Math.round(process.uptime())}`,
+    `nodejs_memory_rss_bytes ${process.memoryUsage().rss}`
+  ];
+  res.set('Content-Type', 'text/plain');
+  res.send(lines.join('\n'));
 });
 
 // Register dashboard and API routes

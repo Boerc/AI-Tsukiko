@@ -1,15 +1,18 @@
 import WebSocket from 'ws';
 
 export type VtsConfig = { host: string; port: number; pluginName: string; pluginAuthor: string; pluginIconUrl: string; authToken: string };
+type TokenProvider = { getToken: () => Promise<string | null>; saveToken: (token: string) => Promise<void> };
 
 export class VtsController {
   private ws: WebSocket | null = null;
   private config: VtsConfig;
   private connected = false;
   private heartbeatTimer: NodeJS.Timeout | null = null;
+  private tokenProvider: TokenProvider | null = null;
 
-  constructor(config: VtsConfig) {
+  constructor(config: VtsConfig, tokenProvider?: TokenProvider) {
     this.config = config;
+    this.tokenProvider = tokenProvider ?? null;
   }
 
   async connect(): Promise<void> {
@@ -36,6 +39,12 @@ export class VtsController {
         this.stopHeartbeat();
         setTimeout(() => this.reconnect().catch(() => {}), 2000);
       });
+      ws.on('message', (data) => {
+        try {
+          const msg = JSON.parse(String(data));
+          this.handleMessage(msg);
+        } catch {}
+      });
     });
   }
 
@@ -59,17 +68,22 @@ export class VtsController {
 
   private async authenticate(): Promise<void> {
     if (!this.ws) return;
-    // If we have token use it; otherwise request
-    if (!this.config.authToken) {
-      // Request token (one-time, requires user approval in VTS). Here we just noop.
+    let token = this.config.authToken;
+    if (!token && this.tokenProvider) token = (await this.tokenProvider.getToken()) ?? '';
+    if (!token) {
+      // Request token (requires user approval in VTS)
+      this.send({
+        apiName: 'VTubeStudioPublicAPI',
+        messageType: 'AuthenticationTokenRequest',
+        data: { pluginName: this.config.pluginName, pluginDeveloper: this.config.pluginAuthor, pluginIcon: this.config.pluginIconUrl }
+      });
       return;
     }
-    const payload = {
+    this.send({
       apiName: 'VTubeStudioPublicAPI',
       messageType: 'AuthenticationRequest',
-      data: { pluginName: this.config.pluginName, pluginDeveloper: this.config.pluginAuthor, authenticationToken: this.config.authToken }
-    };
-    this.send(payload);
+      data: { pluginName: this.config.pluginName, pluginDeveloper: this.config.pluginAuthor, authenticationToken: token }
+    });
   }
 
   private startHeartbeat() {
@@ -86,6 +100,20 @@ export class VtsController {
 
   private async reconnect(): Promise<void> {
     try { await this.connect(); } catch {}
+  }
+
+  private async handleMessage(msg: any) {
+    const type = msg?.messageType;
+    if (type === 'AuthenticationTokenResponse') {
+      const token: string | undefined = msg?.data?.authenticationToken;
+      if (token) {
+        if (this.tokenProvider) await this.tokenProvider.saveToken(token).catch(() => {});
+        this.config.authToken = token;
+        // Immediately authenticate with received token
+        await this.authenticate();
+      }
+    }
+    // Could handle AuthenticationResponse and log success if needed
   }
 }
 
