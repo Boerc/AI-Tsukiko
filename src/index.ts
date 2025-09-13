@@ -13,7 +13,7 @@ import { VtsController } from './integrations/vts.js';
 import { DiscordBot } from './integrations/discordBot.js';
 import { registerDashboardRoutes } from './dashboard/routes.js';
 import { TwitchBot } from './integrations/twitch.js';
-import { defaultModeration, moderateText } from './moderation/moderation.js';
+import { defaultModeration, moderateText, moderateTextAdvanced, defaultAdvancedModeration, SlidingWindowRateLimiter } from './moderation/moderation.js';
 import { getPersona } from './persona/persona.js';
 import { quickSentimentToEmotion, triggerEmotion } from './integrations/vtsEmotions.js';
 import { HighlightDetector, HighlightStore } from './analytics/highlights.js';
@@ -71,14 +71,27 @@ const discord = new DiscordBot({
 let twitch: TwitchBot | null = null;
 let eventSub: TwitchEventSub | null = null;
 if (config.twitch) {
+  const rateLimiter = new SlidingWindowRateLimiter(10_000, 5);
   twitch = new TwitchBot(
     { username: config.twitch.username, oauth: config.twitch.oauth, channels: config.twitch.channels },
     {
       memory,
       chatHandler: async ({ channel, username, message, reply }) => {
-        // Moderation
-        const modSettings = defaultModeration();
-        const mod = moderateText(message, modSettings);
+        // Moderation (use saved settings)
+        const s = memory.getAllSettings();
+        const adv = defaultAdvancedModeration();
+        adv.enabled = (s['moderation.enabled'] ?? 'true') !== 'false';
+        adv.maxCapsPercent = parseInt(s['moderation.maxCapsPercent'] ?? String(adv.maxCapsPercent), 10) || adv.maxCapsPercent;
+        adv.maxLength = parseInt(s['moderation.maxLength'] ?? String(adv.maxLength), 10) || adv.maxLength;
+        const block = s['moderation.blocklist'] ?? '';
+        adv.blocklist = block.split(',').map(x => x.trim()).filter(Boolean);
+        const slurs = s['moderation.slurList'] ?? '';
+        adv.slurList = slurs.split(',').map(x => x.trim()).filter(Boolean);
+
+        // Rate limit per user
+        if (!rateLimiter.allow(`twitch:${channel}:${username}`)) return;
+
+        const mod = moderateTextAdvanced(message, adv);
         if (!mod.allowed) return;
 
         // Persona
@@ -221,6 +234,23 @@ server.listen(PORT, HOST, async () => {
     } catch (err) {
       console.error('EventSub init failed:', err);
     }
+  }
+
+  // Load show flow from saved memory
+  try {
+    const stepsRaw = memory.getMemory('showflow.steps', 'global');
+    if (stepsRaw) {
+      const steps = JSON.parse(stepsRaw) as ShowStep[];
+      showflow.load(steps, async (a: ShowAction) => {
+        if (a.kind === 'obs_scene') await obs.setScene(a.value);
+        else if (a.kind === 'obs_hotkey') await obs.triggerHotkey(a.value);
+        else if (a.kind === 'vts_expression') { vts.setExpression(a.value, 1.0); setTimeout(() => vts.setExpression(a.value, 0.0), 1200); }
+        else if (a.kind === 'persona') memory.setSetting('persona.current', a.value);
+        else if (a.kind === 'say') console.log('ShowFlow say:', a.value);
+      });
+    }
+  } catch (e) {
+    console.warn('Failed to load showflow at startup:', e);
   }
 });
 
