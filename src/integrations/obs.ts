@@ -14,8 +14,15 @@ export class ObsController {
 
   async connect(): Promise<void> {
     const url = `ws://${this.config.host}:${this.config.port}`;
-    await this.client.connect(url, this.config.password, { eventSubscriptions: EventSubscription.All });
-    this.connected = true;
+    try {
+      await this.client.connect(url, this.config.password, { eventSubscriptions: EventSubscription.All });
+      this.connected = true;
+      this.client.on('ConnectionClosed', () => { this.connected = false; this.reconnect().catch(() => {}); });
+    } catch (e) {
+      this.connected = false;
+      setTimeout(() => this.reconnect().catch(() => {}), 2000);
+      throw e;
+    }
   }
 
   async disconnect(): Promise<void> {
@@ -57,6 +64,21 @@ export class ObsController {
 
   async setScene(sceneName: string): Promise<void> {
     await this.setCurrentScene(sceneName);
+  }
+
+  private async reconnect(): Promise<void> {
+    const url = `ws://${this.config.host}:${this.config.port}`;
+    let delay = 1000;
+    for (let i = 0; i < 5; i++) {
+      try {
+        await this.client.connect(url, this.config.password, { eventSubscriptions: EventSubscription.All });
+        this.connected = true;
+        return;
+      } catch {
+        await new Promise(r => setTimeout(r, delay));
+        delay = Math.min(delay * 2, 15_000);
+      }
+    }
   }
 }
 

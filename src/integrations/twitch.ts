@@ -12,6 +12,8 @@ export type TwitchDeps = {
 export class TwitchBot {
   private client: tmi.Client;
   private deps: TwitchDeps;
+  private queue: { channel: string; text: string }[] = [];
+  private sending = false;
 
   constructor(cfg: TwitchConfig, deps: TwitchDeps) {
     this.deps = deps;
@@ -33,7 +35,7 @@ export class TwitchBot {
       if (now - lastTick > 1000) { this.deps.onChatCount?.(counter); counter = 0; lastTick = now; }
       counter++;
       const username = tags['display-name'] || tags.username || 'unknown';
-      const reply = async (text: string) => { await this.client.say(channel, text); };
+      const reply = async (text: string) => { this.enqueueSay(channel, text); };
       await this.deps.chatHandler({ channel, username, message, reply });
     });
   }
@@ -41,6 +43,22 @@ export class TwitchBot {
   async disconnect(): Promise<void> {
     this.client.removeAllListeners();
     await this.client.disconnect();
+  }
+
+  private enqueueSay(channel: string, text: string) {
+    this.queue.push({ channel, text });
+    if (!this.sending) this.flushQueue();
+  }
+
+  private async flushQueue() {
+    this.sending = true;
+    while (this.queue.length > 0) {
+      const item = this.queue.shift()!;
+      try { await this.client.say(item.channel, item.text); } catch {}
+      // Twitch recommends ~20-30 msgs per 30 sec; we use a conservative 1 msg/sec
+      await new Promise(r => setTimeout(r, 1000));
+    }
+    this.sending = false;
   }
 }
 

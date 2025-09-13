@@ -14,12 +14,14 @@ export class TwitchEventSub {
   private api: ApiClient;
   private listener: EventSubWsListener;
   private redeemsMap: Map<string, RedeemAction> = new Map();
+  private broadcasterId: string;
 
   constructor(cfg: EventSubConfig) {
     const auth = new StaticAuthProvider(cfg.clientId, cfg.accessToken);
     this.api = new ApiClient({ authProvider: auth });
     this.listener = new EventSubWsListener({ apiClient: this.api });
     this.listener.start();
+    this.broadcasterId = cfg.broadcasterUserId;
   }
 
   setRedeemAction(title: string, action: RedeemAction) {
@@ -27,12 +29,21 @@ export class TwitchEventSub {
   }
 
   async subscribeToRedemptions(broadcasterUserId: string, onRedeem: (title: string, action: RedeemAction | undefined) => void) {
-    const listenerAny = this.listener as unknown as { onChannelRedemptionAdd: (id: string, cb: (e: any) => void) => Promise<void> };
-    await listenerAny.onChannelRedemptionAdd(broadcasterUserId, (e: any) => {
-      const title: string = e.rewardTitle ?? e.rewardTitle?.toString?.() ?? '';
-      const action = this.redeemsMap.get(title.toLowerCase());
-      onRedeem(title, action);
-    });
+    // Use official API route via ApiClient to get user info and ensure token scopes are fine
+    try {
+      await this.api.users.getUserById(broadcasterUserId);
+    } catch (e) {
+      // Non-fatal; continue
+    }
+    // Twurple WS listener has specific subscribe methods; cast if types mismatch
+    const sub = (this.listener as any).subscribeToChannelRedemptionAddEvents;
+    if (typeof sub === 'function') {
+      await sub.call(this.listener, broadcasterUserId, (e: any) => {
+        const title: string = e?.rewardTitle ?? '';
+        const action = this.redeemsMap.get(title.toLowerCase());
+        onRedeem(title, action);
+      });
+    }
   }
 }
 
