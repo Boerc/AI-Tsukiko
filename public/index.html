@@ -1,0 +1,96 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tsukiko Dashboard</title>
+    <style>
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; padding: 24px; max-width: 900px; margin: 0 auto; }
+      h1 { margin-bottom: 0; }
+      .card { border: 1px solid #ddd; border-radius: 8px; padding: 16px; margin: 16px 0; }
+      label { display: block; margin: 8px 0 4px; font-weight: 600; }
+      input, select, button, textarea { padding: 8px; border-radius: 6px; border: 1px solid #ccc; width: 100%; box-sizing: border-box; }
+      button { background: #111827; color: white; cursor: pointer; width: auto; }
+      .row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+      .small { font-size: 12px; color: #666; }
+      code { background: #f5f5f5; padding: 2px 6px; border-radius: 4px; }
+    </style>
+  </head>
+  <body>
+    <h1>Tsukiko</h1>
+    <p class="small">Web dashboard on port 8181</p>
+    <div class="card">
+      <h3>Health</h3>
+      <pre id="health">Loading...</pre>
+      <button id="refreshHealth">Refresh</button>
+    </div>
+    <div class="card">
+      <h3>Global Memory</h3>
+      <div class="row">
+        <div>
+          <label>Key</label>
+          <input id="memKey" placeholder="e.g. personality.preset" />
+        </div>
+        <div>
+          <label>Value</label>
+          <input id="memValue" placeholder="e.g. default" />
+        </div>
+      </div>
+      <div style="margin-top: 12px; display:flex; gap: 8px;">
+        <button id="getMem">Get</button>
+        <button id="setMem">Set</button>
+      </div>
+      <pre id="memOut"></pre>
+    </div>
+    <div class="card">
+      <h3>Settings</h3>
+      <div class="row">
+        <div>
+          <label>Personality Preset</label>
+          <input id="personality" placeholder="default" />
+        </div>
+        <div>
+          <label>Profanity Level</label>
+          <select id="profanity">
+            <option>low</option>
+            <option selected>medium</option>
+            <option>high</option>
+          </select>
+        </div>
+      </div>
+      <div style="margin-top: 12px;">
+        <button id="saveSettings">Save</button>
+      </div>
+    </div>
+    <script>
+      async function refreshHealth(){
+        const r = await fetch('/api/health');
+        const j = await r.json();
+        document.getElementById('health').textContent = JSON.stringify(j, null, 2);
+      }
+      document.getElementById('refreshHealth').onclick = refreshHealth;
+      refreshHealth();
+
+      document.getElementById('getMem').onclick = async () => {
+        const key = document.getElementById('memKey').value.trim();
+        const r = await fetch('/api/memory/global/' + encodeURIComponent(key));
+        const j = await r.json();
+        document.getElementById('memOut').textContent = JSON.stringify(j, null, 2);
+      };
+      document.getElementById('setMem').onclick = async () => {
+        const key = document.getElementById('memKey').value.trim();
+        const value = document.getElementById('memValue').value.trim();
+        const r = await fetch('/api/memory/global/' + encodeURIComponent(key), { method:'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ value }) });
+        const j = await r.json();
+        document.getElementById('memOut').textContent = JSON.stringify(j, null, 2);
+      };
+      document.getElementById('saveSettings').onclick = async () => {
+        const personality = document.getElementById('personality').value.trim();
+        const profanity = document.getElementById('profanity').value.trim();
+        const r = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ 'personality.preset': personality, 'speech.profanity': profanity }) });
+        if (r.ok) alert('Saved');
+      };
+    </script>
+  </body>
+  </html>
+
