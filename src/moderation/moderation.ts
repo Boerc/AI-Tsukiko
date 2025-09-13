@@ -27,3 +27,51 @@ export function defaultModeration(): ModerationSettings {
   return { enabled: true, blocklist: [], maxCapsPercent: 70, maxLength: 400 };
 }
 
+// Advanced moderation extensions
+const urlRegex = /\bhttps?:\/\/[\w.-]+(?:\/[\w\-./?%&=+#]*)?/i;
+
+export type AdvancedModerationSettings = ModerationSettings & {
+  blockUrls: boolean;
+  slurList: string[];
+  rateLimit: { windowMs: number; maxInWindow: number };
+};
+
+export function defaultAdvancedModeration(): AdvancedModerationSettings {
+  return {
+    ...defaultModeration(),
+    blockUrls: true,
+    slurList: [],
+    rateLimit: { windowMs: 10_000, maxInWindow: 5 }
+  };
+}
+
+export function moderateTextAdvanced(input: string, settings: AdvancedModerationSettings): ModerationResult {
+  const base = moderateText(input, settings);
+  if (!base.allowed) return base;
+  const text = base.sanitized ?? input;
+  if (settings.blockUrls && urlRegex.test(text)) return { allowed: false, reason: 'url_blocked' };
+  const lower = text.toLowerCase();
+  for (const s of settings.slurList) {
+    if (s && lower.includes(s.toLowerCase())) return { allowed: false, reason: 'slur_blocked' };
+  }
+  return { allowed: true, sanitized: text };
+}
+
+export class SlidingWindowRateLimiter {
+  private hits: Map<string, number[]> = new Map();
+  private windowMs: number;
+  private maxInWindow: number;
+  constructor(windowMs: number, maxInWindow: number) {
+    this.windowMs = windowMs;
+    this.maxInWindow = maxInWindow;
+  }
+  allow(key: string): boolean {
+    const now = Date.now();
+    const arr = this.hits.get(key) ?? [];
+    const fresh = arr.filter(ts => now - ts <= this.windowMs);
+    fresh.push(now);
+    this.hits.set(key, fresh);
+    return fresh.length <= this.maxInWindow;
+  }
+}
+

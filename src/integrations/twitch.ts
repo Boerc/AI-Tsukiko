@@ -6,6 +6,7 @@ export type TwitchConfig = { username: string; oauth: string; channels: string[]
 export type TwitchDeps = {
   memory: MemoryStore;
   chatHandler: (ctx: { channel: string; username: string; message: string; reply: (text: string) => Promise<void> }) => Promise<void>;
+  onChatCount?: (count: number) => void;
 };
 
 export class TwitchBot {
@@ -24,8 +25,13 @@ export class TwitchBot {
 
   async connect(): Promise<void> {
     await this.client.connect();
+    let counter = 0; let lastTick = Date.now();
     this.client.on('message', async (channel, tags, message, self) => {
       if (self) return;
+      // Per-second chat rate counter for highlight detection callbacks
+      const now = Date.now();
+      if (now - lastTick > 1000) { this.deps.onChatCount?.(counter); counter = 0; lastTick = now; }
+      counter++;
       const username = tags['display-name'] || tags.username || 'unknown';
       const reply = async (text: string) => { await this.client.say(channel, text); };
       await this.deps.chatHandler({ channel, username, message, reply });

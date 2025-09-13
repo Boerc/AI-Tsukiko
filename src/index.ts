@@ -16,6 +16,7 @@ import { TwitchBot } from './integrations/twitch.js';
 import { defaultModeration, moderateText } from './moderation/moderation.js';
 import { getPersona } from './persona/persona.js';
 import { quickSentimentToEmotion, triggerEmotion } from './integrations/vtsEmotions.js';
+import { HighlightDetector, HighlightStore } from './analytics/highlights.js';
 
 dotenv.config();
 
@@ -35,6 +36,8 @@ if (!fs.existsSync(config.dataDir)) {
 // Initialize database and services
 const db = initializeDatabase(path.join(config.dataDir, 'tsukiko.db'));
 const memory = new MemoryStore(db);
+const highlights = new HighlightStore(db);
+const highlightDetector = new HighlightDetector();
 const google = new GoogleAI({
   projectId: config.google.projectId,
   location: config.google.location
@@ -89,6 +92,15 @@ if (config.twitch) {
         const safeReply = response.slice(0, 300);
         await reply(safeReply);
       }
+      ,
+      onChatCount: (count: number) => {
+        const spike = highlightDetector.recordChatCount(count);
+        if (spike) {
+          const id = `${Date.now()}`;
+          highlights.add(id, Date.now(), 'chat_spike');
+          obs.createRecordMarker('chat_spike').catch(() => {});
+        }
+      }
     }
   );
 }
@@ -100,6 +112,16 @@ app.get('/api/health', (_req, res) => {
 
 // Register dashboard and API routes
 registerDashboardRoutes(app, { memory, config });
+
+// Lightweight highlights endpoint served here to avoid circular deps
+app.get('/api/highlights', (_req, res) => {
+  try {
+    const list = highlights.list(50);
+    res.json({ highlights: list });
+  } catch (e) {
+    res.status(500).json({ error: String(e) });
+  }
+});
 
 // Serve static dashboard
 app.use('/', express.static(path.join(process.cwd(), 'public')));

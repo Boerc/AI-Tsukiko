@@ -95,6 +95,12 @@
         <button id="saveModeration">Save Moderation</button>
       </div>
     </div>
+    <div class="card">
+      <h3>Highlights</h3>
+      <p class="small">Chat spike detection creates OBS record markers and saves entries here.</p>
+      <button id="refreshHighlights">Refresh</button>
+      <pre id="highlights"></pre>
+    </div>
     <script>
       async function refreshHealth(){
         const r = await fetch('/api/health');
@@ -136,6 +142,14 @@
         await fetch('/api/moderation', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled, maxCapsPercent: caps, maxLength: len, blocklist: block }) });
         alert('Moderation saved');
       };
+      async function refreshHighlights(){
+        try{
+          const r = await fetch('/api/highlights');
+          const j = await r.json();
+          document.getElementById('highlights').textContent = JSON.stringify(j, null, 2);
+        }catch(e){ document.getElementById('highlights').textContent = String(e); }
+      }
+      document.getElementById('refreshHighlights').onclick = refreshHighlights;
     </script>
   </body>
   </html>

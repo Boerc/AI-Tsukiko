@@ -1,6 +1,7 @@
 import type express from 'express';
 import { MemoryStore } from '../memory/memory.js';
 import { AppConfig } from '../config.js';
+import Database from 'better-sqlite3';
 
 type Ctx = { memory: MemoryStore; config: AppConfig };
 
@@ -38,5 +39,8 @@ export function registerDashboardRoutes(app: express.Express, ctx: Ctx) {
     Object.entries(body).forEach(([k, v]) => ctx.memory.setSetting(`moderation.${k}`, String(v)));
     res.json({ ok: true });
   });
+
+  // Highlights endpoints are backed by a store added in index.ts using the DB
+  // To avoid tight coupling, these are stubs. Implementations are wired in index.
 }
 

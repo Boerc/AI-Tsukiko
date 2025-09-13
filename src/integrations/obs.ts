@@ -33,5 +33,14 @@ export class ObsController {
     if (!this.connected) return;
     await this.client.call('TriggerHotkeyByName', { hotkeyName: name });
   }
+
+  async createRecordMarker(markerName: string): Promise<void> {
+    if (!this.connected) return;
+    try {
+      await (this.client as unknown as { call: (name: string, args: any) => Promise<any> }).call('CreateRecordMarker', { markerName });
+    } catch {
+      // Not all OBS versions support this; ignore
+    }
+  }
 }
 
