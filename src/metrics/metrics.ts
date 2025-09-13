@@ -40,7 +40,10 @@ export const metrics = {
   counters: {
     http_requests_total: new SimpleCounter('http_requests_total', 'Total HTTP requests'),
     chat_replies_total: new SimpleCounter('chat_replies_total', 'Total chat replies sent'),
-    eventsub_redeems_total: new SimpleCounter('eventsub_redeems_total', 'Total EventSub redeems observed')
+    eventsub_redeems_total: new SimpleCounter('eventsub_redeems_total', 'Total EventSub redeems observed'),
+    memory_pruned_total: new SimpleCounter('memory_pruned_total', 'Total messages pruned by retention'),
+    backups_total: new SimpleCounter('backups_total', 'Total DB backups created'),
+    summaries_total: new SimpleCounter('summaries_total', 'Total user summaries created')
   },
   histograms: {
     tts_latency_ms: new SimpleHistogram('tts_latency_ms', 'TTS synthesis latency in ms'),

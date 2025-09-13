@@ -22,6 +22,8 @@ import { ShowFlowScheduler, type ShowAction, type ShowStep } from './showflow/sc
 import { apiKeyAuth, basicRateLimit } from './security/auth.js';
 import { metrics } from './metrics/metrics.js';
 import helmet from 'helmet';
+import { MemoryLifecycle } from './memory/lifecycle.js';
+import { Summarizer } from './memory/summarizer.js';
 
 dotenv.config();
 
@@ -49,6 +51,7 @@ const memory = new MemoryStore(db);
 const highlights = new HighlightStore(db);
 const highlightDetector = new HighlightDetector();
 const showflow = new ShowFlowScheduler();
+const lifecycle = new MemoryLifecycle(db, config.dataDir);
 const google = new GoogleAI({
   projectId: config.google.projectId,
   location: config.google.location
@@ -69,6 +72,7 @@ const vts = new VtsController({
   getToken: async () => memory.getAllSettings()['vts.token'] || null,
   saveToken: async (t: string) => { memory.setSetting('vts.token', t); }
 });
+const summarizer = new Summarizer(memory, google);
 const discord = new DiscordBot({
   token: config.discord.token,
   clientId: config.discord.clientId,
@@ -290,6 +294,8 @@ server.listen(PORT, HOST, async () => {
   } catch (err) {
     console.error('Discord login failed:', err);
   }
+  // Schedule memory lifecycle jobs
+  try { lifecycle.schedule(); } catch {}
   if (twitch) {
     try {
       await twitch.connect();

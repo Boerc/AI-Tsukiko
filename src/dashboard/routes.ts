@@ -28,6 +28,8 @@ export function registerDashboardRoutes(app: express.Express, ctx: Ctx) {
     res.json({ ok: true });
   });
 
+  // Optional: endpoints for summaries (future expansion)
+
   app.post('/api/persona', (req, res) => {
     const { id } = req.body as { id: string };
     ctx.memory.setSetting('persona.current', id);
