@@ -187,6 +187,15 @@ app.get('/api/highlights', (_req, res) => {
   }
 });
 
+// Self-test endpoint
+app.get('/api/selftest', (_req, res) => {
+  res.json({
+    obs: obs.getStatus(),
+    vts: vts.getStatus(),
+    eventsub: eventSub ? eventSub.getStatus() : { connected: false }
+  });
+});
+
 app.get('/api/showflow', (_req, res) => {
   try {
     const stepsRaw = memory.getMemory('showflow.steps', 'global');

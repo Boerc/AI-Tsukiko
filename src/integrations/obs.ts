@@ -80,5 +80,9 @@ export class ObsController {
       }
     }
   }
+
+  getStatus(): { connected: boolean } {
+    return { connected: this.connected };
+  }
 }
 

@@ -115,5 +115,9 @@ export class VtsController {
     }
     // Could handle AuthenticationResponse and log success if needed
   }
+
+  getStatus(): { connected: boolean; hasToken: boolean } {
+    return { connected: this.connected, hasToken: Boolean(this.config.authToken) };
+  }
 }
 

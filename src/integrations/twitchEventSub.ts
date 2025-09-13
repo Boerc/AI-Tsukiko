@@ -59,5 +59,10 @@ export class TwitchEventSub {
       }
     }, 60_000);
   }
+
+  getStatus(): { connected: boolean } {
+    // Twurple doesn't expose raw ws connected; infer via lastSubscribeTs freshness
+    return { connected: Date.now() - this.lastSubscribeTs < 15 * 60_000 };
+  }
 }
 
