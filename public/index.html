@@ -1,0 +1,480 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tsukiko Dashboard</title>
+    <style>
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; padding: 24px; max-width: 900px; margin: 0 auto; }
+      h1 { margin-bottom: 0; }
+      .card { border: 1px solid #ddd; border-radius: 8px; padding: 16px; margin: 16px 0; }
+      label { display: block; margin: 8px 0 4px; font-weight: 600; }
+      input, select, button, textarea { padding: 8px; border-radius: 6px; border: 1px solid #ccc; width: 100%; box-sizing: border-box; }
+      button { background: #111827; color: white; cursor: pointer; width: auto; }
+      .row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+      .small { font-size: 12px; color: #666; }
+      code { background: #f5f5f5; padding: 2px 6px; border-radius: 4px; }
+    </style>
+  </head>
+  <body>
+    <h1>Tsukiko</h1>
+    <p class="small">Web dashboard on port 8181</p>
+    <div id="warn" class="card" style="display:none; border-color:#f59e0b;">
+      <h3>Warning</h3>
+      <div id="warnText" class="small"></div>
+      <div class="small">If missing permissions, generate a Twitch token with required scopes (e.g., channel:read:redemptions) and set <code>TWITCH_ACCESS_TOKEN</code>. Then click Resubscribe.</div>
+    </div>
+    <div class="card">
+      <h3>Auth</h3>
+      <div class="row">
+        <div>
+          <label>API Key</label>
+          <input id="apiKey" placeholder="optional if not set on server" />
+        </div>
+      </div>
+      <div style="margin-top: 12px;">
+        <button id="saveApiKey">Save</button>
+      </div>
+    </div>
+    <div class="card gated">
+      <h3>Health</h3>
+      <pre id="health">Loading...</pre>
+      <button id="refreshHealth">Refresh</button>
+    </div>
+    <div class="card gated">
+      <h3>Global Memory</h3>
+      <div class="row">
+        <div>
+          <label>Key</label>
+          <input id="memKey" placeholder="e.g. personality.preset" />
+        </div>
+        <div>
+          <label>Value</label>
+          <input id="memValue" placeholder="e.g. default" />
+        </div>
+      </div>
+      <div style="margin-top: 12px; display:flex; gap: 8px;">
+        <button id="getMem">Get</button>
+        <button id="setMem">Set</button>
+      </div>
+      <pre id="memOut"></pre>
+    </div>
+    <div class="card gated">
+      <h3>Settings</h3>
+      <div class="row">
+        <div>
+          <label>Personality Preset</label>
+          <select id="personality">
+            <option value="default" selected>default</option>
+            <option value="evil">evil</option>
+          </select>
+        </div>
+        <div>
+          <label>Profanity Level</label>
+          <select id="profanity">
+            <option>low</option>
+            <option selected>medium</option>
+            <option>high</option>
+          </select>
+        </div>
+      </div>
+      <div style="margin-top: 12px;">
+        <button id="saveSettings">Save</button>
+        <button id="switchPersona">Switch Persona</button>
+      </div>
+    </div>
+    <div class="card gated">
+      <h3>Safety Level</h3>
+      <p class="small">Controls LLM safety thresholds for output.</p>
+      <div style="display:flex; gap:8px;">
+        <button id="safetyLow">Low</button>
+        <button id="safetyMedium">Medium</button>
+        <button id="safetyHigh">High</button>
+      </div>
+      <div class="small" style="margin-top:8px;">Current: <span id="safetyCurrent">unknown</span></div>
+    </div>
+    <div class="card gated">
+      <h3>Moderation</h3>
+      <div class="row">
+        <div>
+          <label>Enabled</label>
+          <select id="modEnabled">
+            <option value="true" selected>true</option>
+            <option value="false">false</option>
+          </select>
+        </div>
+        <div>
+          <label>Max Caps %</label>
+          <input id="modCaps" type="number" value="70" />
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>Max Length</label>
+          <input id="modLen" type="number" value="400" />
+        </div>
+        <div>
+          <label>Blocklist (comma-separated)</label>
+          <input id="modBlock" placeholder="word1,word2" />
+        </div>
+      </div>
+      <div style="margin-top: 12px;">
+        <button id="saveModeration">Save Moderation</button>
+      </div>
+    </div>
+    <div class="card gated">
+      <h3>Highlights</h3>
+      <p class="small">Chat spike detection creates OBS record markers and saves entries here.</p>
+      <button id="refreshHighlights">Refresh</button>
+      <pre id="highlights"></pre>
+    </div>
+    <div class="card gated">
+      <h3>Redeems</h3>
+      <p class="small">Map channel point reward title to an action (vts_expression:<name>, obs_hotkey:<name>, persona:<id>).</p>
+      <div class="row">
+        <div>
+          <label>Reward Title</label>
+          <input id="redeemTitle" placeholder="e.g. Smile" />
+        </div>
+        <div>
+          <label>Action</label>
+          <input id="redeemAction" placeholder="e.g. vts_expression:Smile" />
+        </div>
+      </div>
+      <div style="margin-top: 12px; display:flex; gap:8px;">
+        <button id="saveRedeem">Save Mapping</button>
+        <button id="loadRedeems">Load</button>
+      </div>
+      <pre id="redeemsOut"></pre>
+    </div>
+    <div class="card gated">
+      <h3>Show Flow</h3>
+    <div class="card gated">
+      <h3>Self-Test</h3>
+      <div style="display:flex; gap:8px;">
+        <button id="runSelfTest">Run Self-Test</button>
+        <button id="resubEventSub">Resubscribe EventSub</button>
+        <input id="testRedeemTitle" placeholder="Test reward title" style="flex:1;" />
+        <button id="testRedeem">Test Redeem</button>
+      </div>
+      <pre id="selfTestOut"></pre>
+    </div>
+    <div class="card gated">
+      <h3>VTS Auth & Emotions</h3>
+      <div style="display:flex; gap:8px;">
+        <button id="vtsReqToken">Request Token</button>
+      </div>
+      <p class="small">Emotion mapping via settings keys like <code>emotion.happy=Smile</code>, <code>emotion.sad=Sad</code>. Use Settings card to save.</p>
+    </div>
+    <div class="card gated">
+      <h3>OBS Scenes</h3>
+      <div style="display:flex; gap:8px;">
+        <button id="obsListScenes">List Scenes</button>
+        <input id="obsSceneName" placeholder="Scene name" />
+        <button id="obsSetScene">Set Scene</button>
+      </div>
+      <pre id="obsScenesOut"></pre>
+    </div>
+    <div class="card gated">
+      <h3>Logs</h3>
+      <div style="display:flex; gap:8px;">
+        <button id="logsRefresh">Refresh Logs</button>
+      </div>
+      <pre id="logsOut"></pre>
+    </div>
+    <div class="card gated">
+      <h3>Persona Manager</h3>
+      <div class="row">
+        <div>
+          <label>Persona ID</label>
+          <input id="pId" placeholder="my_persona" />
+        </div>
+        <div>
+          <label>Name</label>
+          <input id="pName" placeholder="Display name" />
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>TTS Voice</label>
+          <input id="pVoice" placeholder="en-US-Neural2-F" />
+        </div>
+        <div>
+          <label>Profanity Level</label>
+          <select id="pProf">
+            <option>low</option>
+            <option selected>medium</option>
+            <option>high</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label>System Prompt</label>
+        <textarea id="pPrompt" rows="6" placeholder="You are Tsukiko..."></textarea>
+      </div>
+      <div style="margin-top: 12px; display:flex; gap:8px;">
+        <button id="pSave">Save Persona</button>
+        <button id="pDelete">Delete Persona</button>
+        <button id="pSetCurrent">Set Current</button>
+        <button id="pList">List Personas</button>
+      </div>
+      <pre id="pOut"></pre>
+    </div>
+    <div class="card gated">
+      <h3>Persona Preview</h3>
+      <div class="row">
+        <div>
+          <label>Persona ID (optional)</label>
+          <input id="ppId" placeholder="leave blank for current" />
+        </div>
+        <div>
+          <label>Prompt</label>
+          <input id="ppText" placeholder="Say hello to chat" />
+        </div>
+      </div>
+      <div style="margin-top: 12px; display:flex; gap:8px;">
+        <button id="ppRun">Run Preview</button>
+      </div>
+      <pre id="ppOut"></pre>
+    </div>
+    <div class="card gated">
+      <h3>Summaries</h3>
+      <div class="row">
+        <div>
+          <label>User ID</label>
+          <input id="sumUserId" placeholder="user id" />
+        </div>
+      </div>
+      <div style="margin-top: 12px; display:flex; gap:8px;">
+        <button id="sumOne">Summarize User</button>
+        <button id="sumAll">Summarize Recent Users</button>
+      </div>
+      <pre id="sumOut"></pre>
+    </div>
+      <p class="small">Cron-based steps. Example: {"cron":"0 * * * *","actions":[{"kind":"obs_scene","value":"Just Chatting"}]}.</p>
+      <div>
+        <label>Steps JSON</label>
+        <textarea id="showflowText" rows="8" placeholder='[{"cron":"*/5 * * * *","actions":[{"kind":"obs_hotkey","value":"NextScene"}]}]'></textarea>
+      </div>
+      <div style="margin-top: 12px; display:flex; gap:8px;">
+        <button id="loadShowflow">Load</button>
+        <button id="saveShowflow">Save</button>
+      </div>
+    </div>
+    <script>
+      function headers(){
+        const h = { };
+        const k = localStorage.getItem('apiKey');
+        if (k) { h['x-api-key'] = k; }
+        return h;
+      }
+      function applyGate(){
+        const hasKey = !!localStorage.getItem('apiKey') || !document.getElementById('apiKey');
+        document.querySelectorAll('.gated').forEach(el => { el.style.display = hasKey ? '' : 'none'; });
+      }
+      async function refreshHealth(){
+        const r = await fetch('/api/health', { headers: headers() });
+        const j = await r.json();
+        document.getElementById('health').textContent = JSON.stringify(j, null, 2);
+      }
+      document.getElementById('refreshHealth').onclick = refreshHealth;
+      refreshHealth();
+
+      document.getElementById('getMem').onclick = async () => {
+        const key = document.getElementById('memKey').value.trim();
+        const r = await fetch('/api/memory/global/' + encodeURIComponent(key), { headers: headers() });
+        const j = await r.json();
+        document.getElementById('memOut').textContent = JSON.stringify(j, null, 2);
+      };
+      document.getElementById('setMem').onclick = async () => {
+        const key = document.getElementById('memKey').value.trim();
+        const value = document.getElementById('memValue').value.trim();
+        const h = headers(); h['Content-Type'] = 'application/json';
+        const r = await fetch('/api/memory/global/' + encodeURIComponent(key), { method:'POST', headers: h, body: JSON.stringify({ value }) });
+        const j = await r.json();
+        document.getElementById('memOut').textContent = JSON.stringify(j, null, 2);
+      };
+      document.getElementById('saveSettings').onclick = async () => {
+        const personality = document.getElementById('personality').value.trim();
+        const profanity = document.getElementById('profanity').value.trim();
+        const h = headers(); h['Content-Type'] = 'application/json';
+        const r = await fetch('/api/settings', { method: 'POST', headers: h, body: JSON.stringify({ 'personality.preset': personality, 'speech.profanity': profanity }) });
+        if (r.ok) alert('Saved');
+      };
+      async function loadSafety(){
+        const r = await fetch('/api/settings', { headers: headers() });
+        const j = await r.json();
+        const lvl = (j.settings && j.settings['speech.profanity']) || 'medium';
+        document.getElementById('safetyCurrent').textContent = lvl;
+      }
+      async function setSafety(level){
+        const h = headers(); h['Content-Type'] = 'application/json';
+        await fetch('/api/settings', { method: 'POST', headers: h, body: JSON.stringify({ 'speech.profanity': level }) });
+        document.getElementById('safetyCurrent').textContent = level;
+      }
+      document.getElementById('safetyLow').onclick = () => setSafety('low');
+      document.getElementById('safetyMedium').onclick = () => setSafety('medium');
+      document.getElementById('safetyHigh').onclick = () => setSafety('high');
+      document.getElementById('switchPersona').onclick = async () => {
+        const id = document.getElementById('personality').value.trim();
+        const h = headers(); h['Content-Type'] = 'application/json';
+        const r = await fetch('/api/persona', { method: 'POST', headers: h, body: JSON.stringify({ id }) });
+        if (r.ok) alert('Persona switched');
+      };
+      document.getElementById('saveModeration').onclick = async () => {
+        const enabled = document.getElementById('modEnabled').value;
+        const caps = document.getElementById('modCaps').value;
+        const len = document.getElementById('modLen').value;
+        const block = document.getElementById('modBlock').value;
+        const h = headers(); h['Content-Type'] = 'application/json';
+        await fetch('/api/moderation', { method: 'POST', headers: h, body: JSON.stringify({ enabled, maxCapsPercent: caps, maxLength: len, blocklist: block }) });
+        alert('Moderation saved');
+      };
+      async function refreshHighlights(){
+        try{
+          const r = await fetch('/api/highlights', { headers: headers() });
+          const j = await r.json();
+          document.getElementById('highlights').textContent = JSON.stringify(j, null, 2);
+        }catch(e){ document.getElementById('highlights').textContent = String(e); }
+      }
+      document.getElementById('refreshHighlights').onclick = refreshHighlights;
+      document.getElementById('saveRedeem').onclick = async () => {
+        const k = document.getElementById('redeemTitle').value.trim();
+        const v = document.getElementById('redeemAction').value.trim();
+        const body = {}; body[k] = v;
+        const h = headers(); h['Content-Type'] = 'application/json';
+        await fetch('/api/redeems', { method: 'POST', headers: h, body: JSON.stringify(body) });
+        alert('Saved');
+      };
+      document.getElementById('loadRedeems').onclick = async () => {
+        const r = await fetch('/api/redeems', { headers: headers() });
+        const j = await r.json();
+        document.getElementById('redeemsOut').textContent = JSON.stringify(j, null, 2);
+      };
+      document.getElementById('saveApiKey').onclick = () => {
+        const v = document.getElementById('apiKey').value.trim();
+        if (v) localStorage.setItem('apiKey', v); else localStorage.removeItem('apiKey');
+        alert('API key saved');
+        applyGate();
+      };
+      async function refreshSelfTest(){
+        try {
+          const r = await fetch('/api/selftest', { headers: headers() });
+          const j = await r.json();
+          document.getElementById('selfTestOut').textContent = JSON.stringify(j, null, 2);
+          if (j.eventsubScopes && j.eventsubScopes.ok === false) {
+            document.getElementById('warnText').textContent = 'EventSub scopes missing: require ' + (j.eventsubScopes.required || []).join(', ') + (j.eventsubScopes.error ? (' ('+j.eventsubScopes.error+')') : '');
+            document.getElementById('warn').style.display = '';
+          } else {
+            document.getElementById('warn').style.display = 'none';
+          }
+        } catch {}
+      }
+      (async function init(){
+        const v = localStorage.getItem('apiKey'); if (v) document.getElementById('apiKey').value = v; applyGate();
+        try { await refreshSelfTest(); } catch {}
+        try { await loadSafety(); } catch {}
+        setInterval(refreshSelfTest, 30000);
+      })();
+      document.getElementById('runSelfTest').onclick = refreshSelfTest;
+      document.getElementById('resubEventSub').onclick = async () => {
+        const h = headers(); h['Content-Type'] = 'application/json';
+        const r = await fetch('/api/eventsub/resubscribe', { method: 'POST', headers: h, body: '{}' });
+        if (r.ok) alert('Resubscribe requested'); else alert('Resubscribe failed');
+      };
+      document.getElementById('testRedeem').onclick = async () => {
+        const title = document.getElementById('testRedeemTitle').value.trim() || 'Test Reward';
+        const h = headers(); h['Content-Type'] = 'application/json';
+        const r = await fetch('/api/eventsub/test', { method: 'POST', headers: h, body: JSON.stringify({ title }) });
+        const j = await r.json();
+        document.getElementById('selfTestOut').textContent = JSON.stringify(j, null, 2);
+      };
+      document.getElementById('vtsReqToken').onclick = async () => {
+        const h = headers(); h['Content-Type'] = 'application/json';
+        const r = await fetch('/api/vts/request-token', { method: 'POST', headers: h, body: '{}' });
+        if (r.ok) alert('Token request sent. Approve in VTS.'); else alert('Failed');
+      };
+      document.getElementById('obsListScenes').onclick = async () => {
+        const r = await fetch('/api/obs/scenes', { headers: headers() });
+        const j = await r.json();
+        document.getElementById('obsScenesOut').textContent = JSON.stringify(j, null, 2);
+      };
+      document.getElementById('obsSetScene').onclick = async () => {
+        const name = document.getElementById('obsSceneName').value.trim();
+        const h = headers(); h['Content-Type'] = 'application/json';
+        const r = await fetch('/api/obs/scene', { method: 'POST', headers: h, body: JSON.stringify({ name }) });
+        if (r.ok) alert('Scene switched'); else alert('Failed');
+      };
+      document.getElementById('logsRefresh').onclick = async () => {
+        const r = await fetch('/api/logs', { headers: headers() });
+        const j = await r.json();
+        document.getElementById('logsOut').textContent = (j.lines || []).join('\n');
+      };
+      document.getElementById('sumOne').onclick = async () => {
+        const userId = document.getElementById('sumUserId').value.trim();
+        if (!userId) return alert('Enter user id');
+        const h = headers(); h['Content-Type'] = 'application/json';
+        const r = await fetch('/api/summaries/user', { method: 'POST', headers: h, body: JSON.stringify({ userId }) });
+        const j = await r.json();
+        document.getElementById('sumOut').textContent = JSON.stringify(j, null, 2);
+      };
+      document.getElementById('sumAll').onclick = async () => {
+        const h = headers(); h['Content-Type'] = 'application/json';
+        const r = await fetch('/api/summaries/all', { method: 'POST', headers: h, body: '{}' });
+        const j = await r.json();
+        document.getElementById('sumOut').textContent = JSON.stringify(j, null, 2);
+      };
+      document.getElementById('loadShowflow').onclick = async () => {
+        const r = await fetch('/api/showflow');
+        const j = await r.json();
+        document.getElementById('showflowText').value = JSON.stringify(j.steps ?? [], null, 2);
+      };
+      document.getElementById('saveShowflow').onclick = async () => {
+        const txt = document.getElementById('showflowText').value;
+        const steps = JSON.parse(txt || '[]');
+        await fetch('/api/showflow', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ steps }) });
+        alert('Show flow saved');
+      };
+      document.getElementById('pSave').onclick = async () => {
+        const id = document.getElementById('pId').value.trim();
+        const name = document.getElementById('pName').value.trim();
+        const ttsVoice = document.getElementById('pVoice').value.trim();
+        const profanityLevel = document.getElementById('pProf').value.trim();
+        const systemPrompt = document.getElementById('pPrompt').value;
+        const h = headers(); h['Content-Type'] = 'application/json';
+        const r = await fetch('/api/personas', { method: 'POST', headers: h, body: JSON.stringify({ id, name, systemPrompt, ttsVoice, profanityLevel }) });
+        const j = await r.json();
+        document.getElementById('pOut').textContent = JSON.stringify(j, null, 2);
+      };
+      document.getElementById('pDelete').onclick = async () => {
+        const id = document.getElementById('pId').value.trim();
+        const h = headers();
+        const r = await fetch('/api/personas/' + encodeURIComponent(id), { method: 'DELETE', headers: h });
+        const j = await r.json();
+        document.getElementById('pOut').textContent = JSON.stringify(j, null, 2);
+      };
+      document.getElementById('pSetCurrent').onclick = async () => {
+        const id = document.getElementById('pId').value.trim();
+        const h = headers(); h['Content-Type'] = 'application/json';
+        const r = await fetch('/api/persona', { method: 'POST', headers: h, body: JSON.stringify({ id }) });
+        const j = await r.json();
+        document.getElementById('pOut').textContent = JSON.stringify(j, null, 2);
+      };
+      document.getElementById('pList').onclick = async () => {
+        const r = await fetch('/api/personas', { headers: headers() });
+        const j = await r.json();
+        document.getElementById('pOut').textContent = JSON.stringify(j, null, 2);
+      };
+      document.getElementById('ppRun').onclick = async () => {
+        const text = document.getElementById('ppText').value.trim();
+        if (!text) return alert('Enter prompt');
+        const id = document.getElementById('ppId').value.trim();
+        const h = headers(); h['Content-Type'] = 'application/json';
+        const r = await fetch('/api/persona/preview', { method: 'POST', headers: h, body: JSON.stringify({ text, id: id || undefined }) });
+        const j = await r.json();
+        document.getElementById('ppOut').textContent = JSON.stringify(j, null, 2);
+      };
+    </script>
+  </body>
+  </html>
+

@@ -1,0 +1,45 @@
+Tsukiko dashboard: http://0.0.0.0:8181
+OBS connection failed (continuing): OBSWebSocketError
+    at OBSWebSocket.onClose (file:///workspace/node_modules/obs-websocket-js/dist/chunk-DBJSA4U4.js:342:19)
+    at callListener (/workspace/node_modules/ws/lib/event-target.js:290:14)
+    at WebSocket.onClose (/workspace/node_modules/ws/lib/event-target.js:220:9)
+    at WebSocket.emit (node:events:518:28)
+    at WebSocket.emitClose (/workspace/node_modules/ws/lib/websocket.js:262:12)
+    at emitErrorAndClose (/workspace/node_modules/ws/lib/websocket.js:1042:13)
+    at ClientRequest.<anonymous> (/workspace/node_modules/ws/lib/websocket.js:881:5)
+    at ClientRequest.emit (node:events:518:28)
+    at emitErrorEvent (node:_http_client:104:11)
+    at Socket.socketErrorListener (node:_http_client:518:5) {
+  code: 1006
+}
+(node:5478) MetadataLookupWarning: received unexpected error = Request failed with status code 401 code = UNKNOWN
+(Use `node --trace-warnings ...` to show where the warning was created)
+VTS connection failed (continuing): AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1714:7) {
+  code: 'ECONNREFUSED',
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:8001
+        at createConnectionError (node:net:1677:14)
+        at afterConnectMultiple (node:net:1707:16) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '::1',
+      port: 8001
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:8001
+        at createConnectionError (node:net:1677:14)
+        at afterConnectMultiple (node:net:1707:16) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 8001
+    }
+  ]
+}
+Discord login failed: Error: Missing DISCORD_BOT_TOKEN
+    at DiscordBot.login (file:///workspace/dist/integrations/discordBot.js:43:19)
+    at Server.<anonymous> (file:///workspace/dist/index.js:77:23)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
