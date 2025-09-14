@@ -71,5 +71,9 @@ export class MemoryStore {
     this.db.prepare('INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at')
       .run(key, value, now);
   }
+
+  deleteSetting(key: string): void {
+    this.db.prepare('DELETE FROM settings WHERE key=?').run(key);
+  }
 }
 

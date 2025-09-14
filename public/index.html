@@ -160,6 +160,44 @@
       <pre id="selfTestOut"></pre>
     </div>
     <div class="card gated">
+      <h3>Persona Manager</h3>
+      <div class="row">
+        <div>
+          <label>Persona ID</label>
+          <input id="pId" placeholder="my_persona" />
+        </div>
+        <div>
+          <label>Name</label>
+          <input id="pName" placeholder="Display name" />
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>TTS Voice</label>
+          <input id="pVoice" placeholder="en-US-Neural2-F" />
+        </div>
+        <div>
+          <label>Profanity Level</label>
+          <select id="pProf">
+            <option>low</option>
+            <option selected>medium</option>
+            <option>high</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label>System Prompt</label>
+        <textarea id="pPrompt" rows="6" placeholder="You are Tsukiko..."></textarea>
+      </div>
+      <div style="margin-top: 12px; display:flex; gap:8px;">
+        <button id="pSave">Save Persona</button>
+        <button id="pDelete">Delete Persona</button>
+        <button id="pSetCurrent">Set Current</button>
+        <button id="pList">List Personas</button>
+      </div>
+      <pre id="pOut"></pre>
+    </div>
+    <div class="card gated">
       <h3>Summaries</h3>
       <div class="row">
         <div>
@@ -335,6 +373,36 @@
         const steps = JSON.parse(txt || '[]');
         await fetch('/api/showflow', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ steps }) });
         alert('Show flow saved');
+      };
+      document.getElementById('pSave').onclick = async () => {
+        const id = document.getElementById('pId').value.trim();
+        const name = document.getElementById('pName').value.trim();
+        const ttsVoice = document.getElementById('pVoice').value.trim();
+        const profanityLevel = document.getElementById('pProf').value.trim();
+        const systemPrompt = document.getElementById('pPrompt').value;
+        const h = headers(); h['Content-Type'] = 'application/json';
+        const r = await fetch('/api/personas', { method: 'POST', headers: h, body: JSON.stringify({ id, name, systemPrompt, ttsVoice, profanityLevel }) });
+        const j = await r.json();
+        document.getElementById('pOut').textContent = JSON.stringify(j, null, 2);
+      };
+      document.getElementById('pDelete').onclick = async () => {
+        const id = document.getElementById('pId').value.trim();
+        const h = headers();
+        const r = await fetch('/api/personas/' + encodeURIComponent(id), { method: 'DELETE', headers: h });
+        const j = await r.json();
+        document.getElementById('pOut').textContent = JSON.stringify(j, null, 2);
+      };
+      document.getElementById('pSetCurrent').onclick = async () => {
+        const id = document.getElementById('pId').value.trim();
+        const h = headers(); h['Content-Type'] = 'application/json';
+        const r = await fetch('/api/persona', { method: 'POST', headers: h, body: JSON.stringify({ id }) });
+        const j = await r.json();
+        document.getElementById('pOut').textContent = JSON.stringify(j, null, 2);
+      };
+      document.getElementById('pList').onclick = async () => {
+        const r = await fetch('/api/personas', { headers: headers() });
+        const j = await r.json();
+        document.getElementById('pOut').textContent = JSON.stringify(j, null, 2);
       };
     </script>
   </body>

@@ -34,3 +34,22 @@ export function getCurrentPersonaIdFromSettings(settings: Record<string,string>)
   return settings['persona.current'] || settings['personality.preset'] || 'default';
 }
 
+export function getCustomPersonasFromSettings(settings: Record<string,string>): Record<string, Persona> {
+  const map: Record<string, Persona> = {};
+  for (const [k, v] of Object.entries(settings)) {
+    if (!k.startsWith('persona.custom.')) continue;
+    try {
+      const id = k.replace(/^persona\.custom\./, '');
+      const data = JSON.parse(v);
+      map[id] = {
+        id,
+        name: data.name || id,
+        systemPrompt: data.systemPrompt || '',
+        ttsVoice: data.ttsVoice,
+        profanityLevel: data.profanityLevel
+      };
+    } catch {}
+  }
+  return map;
+}
+

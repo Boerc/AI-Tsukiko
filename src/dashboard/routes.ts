@@ -56,6 +56,26 @@ export function registerDashboardRoutes(app: express.Express, ctx: Ctx) {
     res.json({ ok: true });
   });
 
+  // Persona management
+  app.get('/api/personas', (_req, res) => {
+    const settings = ctx.memory.getAllSettings();
+    const list = Object.entries(settings)
+      .filter(([k]) => k.startsWith('persona.custom.'))
+      .map(([k, v]) => ({ id: k.replace(/^persona\.custom\./, ''), data: v }));
+    res.json({ personas: list });
+  });
+  app.post('/api/personas', (req, res) => {
+    const { id, name, systemPrompt, ttsVoice, profanityLevel } = req.body || {};
+    if (!id) return res.status(400).json({ error: 'id required' });
+    const payload = JSON.stringify({ name, systemPrompt, ttsVoice, profanityLevel });
+    ctx.memory.setSetting(`persona.custom.${id}`, payload);
+    res.json({ ok: true });
+  });
+  app.delete('/api/personas/:id', (req, res) => {
+    ctx.memory.deleteSetting(`persona.custom.${req.params.id}`);
+    res.json({ ok: true });
+  });
+
   // Highlights endpoints are backed by a store added in index.ts using the DB
   // To avoid tight coupling, these are stubs. Implementations are wired in index.
 }

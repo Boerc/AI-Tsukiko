@@ -14,7 +14,7 @@ import { DiscordBot } from './integrations/discordBot.js';
 import { registerDashboardRoutes } from './dashboard/routes.js';
 import { TwitchBot } from './integrations/twitch.js';
 import { defaultModeration, moderateText, moderateTextAdvanced, defaultAdvancedModeration, SlidingWindowRateLimiter, redactPII, buildGoogleSafetySettings } from './moderation/moderation.js';
-import { getPersona } from './persona/persona.js';
+import { getPersona, getCustomPersonasFromSettings } from './persona/persona.js';
 import { quickSentimentToEmotion, triggerEmotion } from './integrations/vtsEmotions.js';
 import { HighlightDetector, HighlightStore } from './analytics/highlights.js';
 import { TwitchEventSub, type RedeemAction } from './integrations/twitchEventSub.js';
@@ -102,8 +102,16 @@ const discord = new DiscordBot({
       const s = memory.getAllSettings();
       return s['persona.current'] || s['personality.preset'] || 'default';
     },
-    getSystemPrompt: (id: string) => getPersona(id).systemPrompt,
-    getVoiceFor: (id: string) => getPersona(id).ttsVoice
+    getSystemPrompt: (id: string) => {
+      const s = memory.getAllSettings();
+      const custom = getCustomPersonasFromSettings(s);
+      return (custom[id]?.systemPrompt) ?? getPersona(id).systemPrompt;
+    },
+    getVoiceFor: (id: string) => {
+      const s = memory.getAllSettings();
+      const custom = getCustomPersonasFromSettings(s);
+      return (custom[id]?.ttsVoice) ?? getPersona(id).ttsVoice;
+    }
   }
 });
 
