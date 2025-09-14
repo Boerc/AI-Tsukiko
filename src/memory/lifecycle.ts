@@ -23,6 +23,8 @@ export class MemoryLifecycle {
     cron.schedule('30 4 * * 0', () => this.vacuum().catch(() => {}));
   }
 
+  setRetentionDays(days: number) { if (Number.isFinite(days) && days > 0) this.retentionDays = Math.floor(days); }
+
   async pruneOldMessages(): Promise<void> {
     const cutoff = Date.now() - this.retentionDays * 24 * 60 * 60 * 1000;
     const stmt = this.db.prepare('DELETE FROM messages WHERE created_at < ?');

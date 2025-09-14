@@ -68,14 +68,20 @@ export class DiscordBot {
   }
 
   private async registerSlashCommands(): Promise<void> {
-    await this.client.application?.commands.set([
+    const cmds = [
       { name: 'ping', description: 'Ping the bot' },
       { name: 'say', description: 'Have Tsukiko say something (text chat reply)', options: [ { name: 'text', description: 'What to say', type: 3, required: true } ] },
       { name: 'tts', description: 'Speak TTS in your current voice channel', options: [ { name: 'text', description: 'What to speak', type: 3, required: true } ] },
       { name: 'persona', description: 'Switch persona', options: [ { name: 'id', description: 'Persona id (default/evil)', type: 3, required: true } ] },
+      { name: 'personas', description: 'List personas' },
       { name: 'join', description: 'Join your current voice channel' },
       { name: 'leave', description: 'Leave voice channel' }
-    ]);
+    ];
+    try {
+      if (this.config.guildId) await this.client.application?.commands.set([], this.config.guildId);
+    } catch {}
+    if (this.config.guildId) await this.client.application?.commands.set(cmds, this.config.guildId);
+    else await this.client.application?.commands.set(cmds);
   }
 
   private async handleSlash(interaction: ChatInputCommandInteraction): Promise<void> {
@@ -100,6 +106,13 @@ export class DiscordBot {
       const id = interaction.options.getString('id', true);
       this.config.memory.setSetting('persona.current', id);
       await interaction.reply({ content: `Persona set to ${id}`, ephemeral: true });
+      return;
+    }
+    if (name === 'personas') {
+      const list = Object.entries(this.config.memory.getAllSettings())
+        .filter(([k]) => k.startsWith('persona.custom.'))
+        .map(([k]) => k.replace(/^persona\.custom\./, ''));
+      await interaction.reply({ content: list.length ? list.join(', ') : 'No custom personas' , ephemeral: true });
       return;
     }
     if (name === 'join' || name === 'tts') {

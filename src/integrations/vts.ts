@@ -72,17 +72,21 @@ export class VtsController {
     if (!token && this.tokenProvider) token = (await this.tokenProvider.getToken()) ?? '';
     if (!token) {
       // Request token (requires user approval in VTS)
-      this.send({
-        apiName: 'VTubeStudioPublicAPI',
-        messageType: 'AuthenticationTokenRequest',
-        data: { pluginName: this.config.pluginName, pluginDeveloper: this.config.pluginAuthor, pluginIcon: this.config.pluginIconUrl }
-      });
+      this.requestToken();
       return;
     }
     this.send({
       apiName: 'VTubeStudioPublicAPI',
       messageType: 'AuthenticationRequest',
       data: { pluginName: this.config.pluginName, pluginDeveloper: this.config.pluginAuthor, authenticationToken: token }
+    });
+  }
+
+  requestToken(): void {
+    this.send({
+      apiName: 'VTubeStudioPublicAPI',
+      messageType: 'AuthenticationTokenRequest',
+      data: { pluginName: this.config.pluginName, pluginDeveloper: this.config.pluginAuthor, pluginIcon: this.config.pluginIconUrl }
     });
   }
 

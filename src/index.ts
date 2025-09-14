@@ -203,6 +203,16 @@ app.get('/api/highlights', (_req, res) => {
   }
 });
 
+// OBS scenes
+app.get('/api/obs/scenes', async (_req, res) => {
+  try { const scenes = await obs.listScenes(); res.json({ scenes }); }
+  catch (e) { res.status(500).json({ error: String(e) }); }
+});
+app.post('/api/obs/scene', async (req, res) => {
+  try { const name: string = req.body?.name; if (!name) return res.status(400).json({ error: 'name required' }); await obs.setScene(name); res.json({ ok: true }); }
+  catch (e) { res.status(500).json({ error: String(e) }); }
+});
+
 // Self-test endpoint
 app.get('/api/selftest', (_req, res) => {
   const base = {
@@ -246,6 +256,11 @@ app.post('/api/eventsub/test', async (req, res) => {
   } catch (e) {
     res.status(500).json({ error: String(e) });
   }
+});
+
+// VTS: request auth token from UI
+app.post('/api/vts/request-token', (_req, res) => {
+  try { vts.requestToken(); res.json({ ok: true }); } catch (e) { res.status(500).json({ error: String(e) }); }
 });
 
 app.post('/api/persona/preview', async (req, res) => {
@@ -345,7 +360,11 @@ server.listen(PORT, HOST, async () => {
     console.error('Discord login failed:', err);
   }
   // Schedule memory lifecycle jobs
-  try { lifecycle.schedule(); } catch {}
+  try {
+    const days = Number(memory.getAllSettings()['retention.days'] || '30');
+    if (Number.isFinite(days) && days > 0) lifecycle.setRetentionDays(days);
+    lifecycle.schedule();
+  } catch {}
   if (twitch) {
     try {
       await twitch.connect();

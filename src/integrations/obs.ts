@@ -84,5 +84,14 @@ export class ObsController {
   getStatus(): { connected: boolean } {
     return { connected: this.connected };
   }
+
+  async listScenes(): Promise<string[]> {
+    if (!this.connected) return [];
+    try {
+      const resp = await this.client.call('GetSceneList');
+      const scenes = (resp as any)?.scenes || [];
+      return scenes.map((s: any) => s.sceneName).filter(Boolean);
+    } catch { return []; }
+  }
 }
 

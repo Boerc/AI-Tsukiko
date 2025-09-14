@@ -160,6 +160,22 @@
       <pre id="selfTestOut"></pre>
     </div>
     <div class="card gated">
+      <h3>VTS Auth & Emotions</h3>
+      <div style="display:flex; gap:8px;">
+        <button id="vtsReqToken">Request Token</button>
+      </div>
+      <p class="small">Emotion mapping via settings keys like <code>emotion.happy=Smile</code>, <code>emotion.sad=Sad</code>. Use Settings card to save.</p>
+    </div>
+    <div class="card gated">
+      <h3>OBS Scenes</h3>
+      <div style="display:flex; gap:8px;">
+        <button id="obsListScenes">List Scenes</button>
+        <input id="obsSceneName" placeholder="Scene name" />
+        <button id="obsSetScene">Set Scene</button>
+      </div>
+      <pre id="obsScenesOut"></pre>
+    </div>
+    <div class="card gated">
       <h3>Persona Manager</h3>
       <div class="row">
         <div>
@@ -365,6 +381,22 @@
         const r = await fetch('/api/eventsub/test', { method: 'POST', headers: h, body: JSON.stringify({ title }) });
         const j = await r.json();
         document.getElementById('selfTestOut').textContent = JSON.stringify(j, null, 2);
+      };
+      document.getElementById('vtsReqToken').onclick = async () => {
+        const h = headers(); h['Content-Type'] = 'application/json';
+        const r = await fetch('/api/vts/request-token', { method: 'POST', headers: h, body: '{}' });
+        if (r.ok) alert('Token request sent. Approve in VTS.'); else alert('Failed');
+      };
+      document.getElementById('obsListScenes').onclick = async () => {
+        const r = await fetch('/api/obs/scenes', { headers: headers() });
+        const j = await r.json();
+        document.getElementById('obsScenesOut').textContent = JSON.stringify(j, null, 2);
+      };
+      document.getElementById('obsSetScene').onclick = async () => {
+        const name = document.getElementById('obsSceneName').value.trim();
+        const h = headers(); h['Content-Type'] = 'application/json';
+        const r = await fetch('/api/obs/scene', { method: 'POST', headers: h, body: JSON.stringify({ name }) });
+        if (r.ok) alert('Scene switched'); else alert('Failed');
       };
       document.getElementById('sumOne').onclick = async () => {
         const userId = document.getElementById('sumUserId').value.trim();
