@@ -25,3 +25,12 @@ export function basicRateLimit(maxPerMin = 120): (req: Request, res: Response, n
   };
 }
 
+// Simple in-memory log buffer
+const ring: string[] = [];
+export function logLine(line: string) {
+  const ts = new Date().toISOString();
+  ring.push(`[${ts}] ${line}`);
+  if (ring.length > 500) ring.shift();
+}
+export function getLogs(): string[] { return [...ring]; }
+

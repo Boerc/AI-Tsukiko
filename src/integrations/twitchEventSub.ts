@@ -69,8 +69,10 @@ export class TwitchEventSub {
         try {
           await this.subscribeToRedemptions(this.broadcasterId, () => {});
           this.resubFailures = 0;
+          metrics.counters.eventsub_resubscribe_total.inc({});
         } catch (e) {
           this.resubFailures++;
+          metrics.counters.eventsub_resubscribe_failures_total.inc({});
         }
       }
     }, 60_000);

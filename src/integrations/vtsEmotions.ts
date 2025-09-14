@@ -1,4 +1,5 @@
 import { VtsController } from './vts.js';
+import { MemoryStore } from '../memory/memory.js';
 
 export type Emotion = 'happy' | 'sad' | 'angry' | 'surprised' | 'neutral';
 
@@ -10,8 +11,9 @@ const expressionMap: Record<Emotion, { parameter: string; value: number }> = {
   neutral: { parameter: 'Neutral', value: 0.5 }
 };
 
-export function triggerEmotion(vts: VtsController, emotion: Emotion): void {
-  const map = expressionMap[emotion] ?? expressionMap.neutral;
+export function triggerEmotion(vts: VtsController, emotion: Emotion, mem?: MemoryStore): void {
+  const customParam = mem?.getAllSettings?.()?.[`emotion.${emotion}`];
+  const map = customParam ? { parameter: String(customParam), value: 0.9 } : (expressionMap[emotion] ?? expressionMap.neutral);
   vts.setExpression(map.parameter, map.value);
   setTimeout(() => vts.setExpression(map.parameter, 0.0), 1200);
 }

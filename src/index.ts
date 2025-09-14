@@ -19,7 +19,7 @@ import { quickSentimentToEmotion, triggerEmotion } from './integrations/vtsEmoti
 import { HighlightDetector, HighlightStore } from './analytics/highlights.js';
 import { TwitchEventSub, type RedeemAction } from './integrations/twitchEventSub.js';
 import { ShowFlowScheduler, type ShowAction, type ShowStep } from './showflow/scheduler.js';
-import { apiKeyAuth, basicRateLimit } from './security/auth.js';
+import { apiKeyAuth, basicRateLimit, getLogs, logLine } from './security/auth.js';
 import { metrics } from './metrics/metrics.js';
 import helmet from 'helmet';
 import { MemoryLifecycle } from './memory/lifecycle.js';
@@ -154,7 +154,7 @@ if (config.twitch) {
 
         // VTS emotion
         const emotion = quickSentimentToEmotion(response);
-        triggerEmotion(vts, emotion);
+        triggerEmotion(vts, emotion, memory);
 
         // Reply
         const safeReply = response.slice(0, 300);
@@ -188,6 +188,12 @@ app.get('/metrics', (_req, res) => {
   ];
   res.set('Content-Type', 'text/plain');
   res.send(lines.join('\n'));
+});
+
+// Logs viewer
+app.get('/api/logs', (_req, res) => {
+  try { res.json({ lines: getLogs() }); }
+  catch (e) { res.status(500).json({ error: String(e) }); }
 });
 
 // Register dashboard and API routes
@@ -344,18 +350,19 @@ const HOST = process.env.HOST || '0.0.0.0';
 
 server.listen(PORT, HOST, async () => {
   console.log(`Tsukiko dashboard: http://${HOST}:${PORT}`);
+  try { logLine('Server started'); } catch {}
   try {
-    await obs.connect();
+    await obs.connect(); logLine('OBS connected');
   } catch (err) {
     console.warn('OBS connection failed (continuing):', err);
   }
   try {
-    await vts.connect();
+    await vts.connect(); logLine('VTS connected');
   } catch (err) {
     console.warn('VTS connection failed (continuing):', err);
   }
   try {
-    await discord.login();
+    await discord.login(); logLine('Discord logged in');
   } catch (err) {
     console.error('Discord login failed:', err);
   }

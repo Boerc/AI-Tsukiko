@@ -176,6 +176,13 @@
       <pre id="obsScenesOut"></pre>
     </div>
     <div class="card gated">
+      <h3>Logs</h3>
+      <div style="display:flex; gap:8px;">
+        <button id="logsRefresh">Refresh Logs</button>
+      </div>
+      <pre id="logsOut"></pre>
+    </div>
+    <div class="card gated">
       <h3>Persona Manager</h3>
       <div class="row">
         <div>
@@ -397,6 +404,11 @@
         const h = headers(); h['Content-Type'] = 'application/json';
         const r = await fetch('/api/obs/scene', { method: 'POST', headers: h, body: JSON.stringify({ name }) });
         if (r.ok) alert('Scene switched'); else alert('Failed');
+      };
+      document.getElementById('logsRefresh').onclick = async () => {
+        const r = await fetch('/api/logs', { headers: headers() });
+        const j = await r.json();
+        document.getElementById('logsOut').textContent = (j.lines || []).join('\n');
       };
       document.getElementById('sumOne').onclick = async () => {
         const userId = document.getElementById('sumUserId').value.trim();
