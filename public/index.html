@@ -198,6 +198,23 @@
       <pre id="pOut"></pre>
     </div>
     <div class="card gated">
+      <h3>Persona Preview</h3>
+      <div class="row">
+        <div>
+          <label>Persona ID (optional)</label>
+          <input id="ppId" placeholder="leave blank for current" />
+        </div>
+        <div>
+          <label>Prompt</label>
+          <input id="ppText" placeholder="Say hello to chat" />
+        </div>
+      </div>
+      <div style="margin-top: 12px; display:flex; gap:8px;">
+        <button id="ppRun">Run Preview</button>
+      </div>
+      <pre id="ppOut"></pre>
+    </div>
+    <div class="card gated">
       <h3>Summaries</h3>
       <div class="row">
         <div>
@@ -403,6 +420,15 @@
         const r = await fetch('/api/personas', { headers: headers() });
         const j = await r.json();
         document.getElementById('pOut').textContent = JSON.stringify(j, null, 2);
+      };
+      document.getElementById('ppRun').onclick = async () => {
+        const text = document.getElementById('ppText').value.trim();
+        if (!text) return alert('Enter prompt');
+        const id = document.getElementById('ppId').value.trim();
+        const h = headers(); h['Content-Type'] = 'application/json';
+        const r = await fetch('/api/persona/preview', { method: 'POST', headers: h, body: JSON.stringify({ text, id: id || undefined }) });
+        const j = await r.json();
+        document.getElementById('ppOut').textContent = JSON.stringify(j, null, 2);
       };
     </script>
   </body>

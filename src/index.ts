@@ -248,6 +248,23 @@ app.post('/api/eventsub/test', async (req, res) => {
   }
 });
 
+app.post('/api/persona/preview', async (req, res) => {
+  try {
+    const text: string = req.body?.text || '';
+    const forcedId: string | undefined = req.body?.id;
+    if (!text) return res.status(400).json({ error: 'text required' });
+    const s = memory.getAllSettings();
+    const custom = getCustomPersonasFromSettings(s);
+    const personaId = forcedId || s['persona.current'] || s['personality.preset'] || 'default';
+    const persona = custom[personaId] ? custom[personaId] : getPersona(personaId);
+    const level = (s['speech.profanity'] || 'medium') as 'low'|'medium'|'high';
+    const resp = await google.chat(redactPII(text), persona.systemPrompt, buildGoogleSafetySettings(level));
+    res.json({ ok: true, personaId, response: resp });
+  } catch (e) {
+    res.status(500).json({ error: String(e) });
+  }
+});
+
 app.post('/api/summaries/user', async (req, res) => {
   try {
     const userId: string = req.body?.userId;
